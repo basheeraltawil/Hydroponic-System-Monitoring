@@ -16,6 +16,9 @@ function App() {
   // Simulate real-time sensor data updates
   React.useEffect(() => {
     const interval = setInterval(() => {
+      // TODO: Replace this simulation with real sensor data from Raspberry Pi
+      // Example: fetch('/api/sensors').then(response => response.json()).then(setSensorData);
+      
       setSensorData(prev => ({
         temperature: Math.max(18, Math.min(28, prev.temperature + (Math.random() - 0.5) * 0.5)),
         humidity: Math.max(50, Math.min(80, prev.humidity + (Math.random() - 0.5) * 2)),
