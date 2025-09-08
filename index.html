@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hydroponic System Dashboard</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Load React + Babel -->
-  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js" crossorigin></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+  <!-- Load React + Babel from alternative CDNs -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -18,19 +18,173 @@
     <div class="dashboard">
       <header class="dashboard-header">
         <h1>🌱 Hydroponic System Dashboard</h1>
-        <div class="last-update" id="fallback-time">
-          Last updated: Loading...
+        <div class="navigation">
+          <a href="#" class="nav-link active" onclick="showDashboard()">Dashboard</a>
+          <a href="#" class="nav-link" onclick="showDevices()">Devices</a>
+          <a href="#" class="nav-link" onclick="showProfiles()">Profiles</a>
+          <a href="#" class="nav-link" onclick="showLogs()">Monitoring</a>
+        </div>
+        <div class="user-info">
+          <span>Demo Mode</span>
+          <div class="last-update" id="fallback-time">
+            Last updated: Loading...
+          </div>
         </div>
       </header>
       
       <main class="dashboard-main">
-        <div class="sensors-grid" id="fallback-grid">
-          <!-- Sensors will be populated by JavaScript -->
+        <!-- Dashboard View -->
+        <div id="dashboard-view">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">2</div>
+              <div class="stat-label">Devices Online</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">3</div>
+              <div class="stat-label">Active Profiles</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">1</div>
+              <div class="stat-label">Active Alerts</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">98.5%</div>
+              <div class="stat-label">System Uptime</div>
+            </div>
+          </div>
+          <div class="sensors-grid" id="fallback-grid">
+            <!-- Sensors will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Devices View -->
+        <div id="devices-view" style="display: none;">
+          <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <h2>Device Management</h2>
+            <button class="btn">+ Add Device</button>
+          </div>
+          <div class="device-grid">
+            <div class="device-card">
+              <div class="device-header">
+                <h3>Greenhouse Alpha</h3>
+                <span class="device-status online">online</span>
+              </div>
+              <p><strong>Serial:</strong> HY-RPI-001</p>
+              <p><strong>Location:</strong> Sector A</p>
+              <p><strong>Firmware:</strong> 1.2.3</p>
+              <p><strong>Profile:</strong> Lettuce Optimal</p>
+              <p><strong>Last Seen:</strong> Just now</p>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-small btn-secondary">Configure</button>
+                <button class="btn btn-small">Update Firmware</button>
+              </div>
+            </div>
+            <div class="device-card">
+              <div class="device-header">
+                <h3>Greenhouse Beta</h3>
+                <span class="device-status offline">offline</span>
+              </div>
+              <p><strong>Serial:</strong> HY-RPI-002</p>
+              <p><strong>Location:</strong> Sector B</p>
+              <p><strong>Firmware:</strong> 1.2.1</p>
+              <p><strong>Profile:</strong> Tomato Growth</p>
+              <p><strong>Last Seen:</strong> 1 hour ago</p>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-small btn-secondary">Configure</button>
+                <button class="btn btn-small">Update Firmware</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profiles View -->
+        <div id="profiles-view" style="display: none;">
+          <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <h2>Parameter Profiles</h2>
+            <button class="btn">+ Create Profile</button>
+          </div>
+          <div class="device-grid">
+            <div class="profile-card">
+              <h3>Lettuce Optimal</h3>
+              <p>Optimized settings for lettuce cultivation</p>
+              <div style="margin-top: 1rem;">
+                <p><strong>Temperature:</strong> 20 - 24°C</p>
+                <p><strong>Humidity:</strong> 65 - 70%</p>
+                <p><strong>pH:</strong> 6.0 - 6.5</p>
+                <p><strong>Light:</strong> 70 - 80%</p>
+              </div>
+              <div style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                Created by System
+              </div>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-small">Apply to Device</button>
+                <button class="btn btn-small btn-secondary">Edit</button>
+              </div>
+            </div>
+            <div class="profile-card">
+              <h3>Tomato Growth</h3>
+              <p>Growth phase settings for tomatoes</p>
+              <div style="margin-top: 1rem;">
+                <p><strong>Temperature:</strong> 22 - 26°C</p>
+                <p><strong>Humidity:</strong> 60 - 65%</p>
+                <p><strong>pH:</strong> 6.2 - 6.8</p>
+                <p><strong>Light:</strong> 80 - 90%</p>
+              </div>
+              <div style="margin-top: 1rem; font-size: 0.9rem; color: #666;">
+                Created by System
+              </div>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn btn-small">Apply to Device</button>
+                <button class="btn btn-small btn-secondary">Edit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs View -->
+        <div id="logs-view" style="display: none;">
+          <div style="margin-bottom: 2rem;">
+            <h2>System Monitoring & Logs</h2>
+          </div>
+          <div class="stats-grid" style="margin-bottom: 2rem;">
+            <div class="stat-card">
+              <div class="stat-value">15</div>
+              <div class="stat-label">Info Messages</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">3</div>
+              <div class="stat-label">Warnings</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">1</div>
+              <div class="stat-label">Errors</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">19</div>
+              <div class="stat-label">Total Logs</div>
+            </div>
+          </div>
+          <div>
+            <h3>Recent Activity</h3>
+            <div class="log-entry">
+              <div class="log-timestamp">2024-01-15 14:30:22 - HY-RPI-001</div>
+              <div class="log-message"><span style="color: #27ae60;">[INFO]</span> Device connected successfully</div>
+            </div>
+            <div class="log-entry">
+              <div class="log-timestamp">2024-01-15 14:15:18 - HY-RPI-001</div>
+              <div class="log-message"><span style="color: #f39c12;">[WARNING]</span> pH level approaching upper threshold</div>
+            </div>
+            <div class="log-entry">
+              <div class="log-timestamp">2024-01-15 13:45:10 - HY-RPI-002</div>
+              <div class="log-message"><span style="color: #e74c3c;">[ERROR]</span> Device disconnected - network timeout</div>
+            </div>
+          </div>
         </div>
       </main>
       
       <footer class="dashboard-footer">
-        <p>Raspberry Pi Hydroponic Monitoring System</p>
+        <p>Raspberry Pi Hydroponic Enterprise System | Demo Mode</p>
       </footer>
     </div>
   </div>
@@ -46,6 +200,49 @@
         initFallbackDashboard();
       }
     }, 2000);
+
+    // Navigation functions for fallback
+    function showDashboard() {
+      hideAllViews();
+      document.getElementById('dashboard-view').style.display = 'block';
+      updateActiveNav(0);
+    }
+
+    function showDevices() {
+      hideAllViews();
+      document.getElementById('devices-view').style.display = 'block';
+      updateActiveNav(1);
+    }
+
+    function showProfiles() {
+      hideAllViews();
+      document.getElementById('profiles-view').style.display = 'block';
+      updateActiveNav(2);
+    }
+
+    function showLogs() {
+      hideAllViews();
+      document.getElementById('logs-view').style.display = 'block';
+      updateActiveNav(3);
+    }
+
+    function hideAllViews() {
+      document.getElementById('dashboard-view').style.display = 'none';
+      document.getElementById('devices-view').style.display = 'none';
+      document.getElementById('profiles-view').style.display = 'none';
+      document.getElementById('logs-view').style.display = 'none';
+    }
+
+    function updateActiveNav(activeIndex) {
+      const navLinks = document.querySelectorAll('.nav-link');
+      navLinks.forEach((link, index) => {
+        if (index === activeIndex) {
+          link.classList.add('active');
+        } else {
+          link.classList.remove('active');
+        }
+      });
+    }
     
     function initFallbackDashboard() {
       // Fallback sensor data
