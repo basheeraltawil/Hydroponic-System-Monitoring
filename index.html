@@ -24,43 +24,8 @@
   
   <!-- Fallback JavaScript -->
   <script>
-    // Session persistence utility functions for fallback
-    const FallbackSessionStorage = {
-      save: (key, value) => {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-        } catch (e) {
-          console.warn('Could not save to localStorage:', e);
-        }
-      },
-      load: (key, defaultValue = null) => {
-        try {
-          const item = localStorage.getItem(key);
-          return item ? JSON.parse(item) : defaultValue;
-        } catch (e) {
-          console.warn('Could not load from localStorage:', e);
-          return defaultValue;
-        }
-      },
-      remove: (key) => {
-        try {
-          localStorage.removeItem(key);
-        } catch (e) {
-          console.warn('Could not remove from localStorage:', e);
-        }
-      },
-      clear: () => {
-        try {
-          localStorage.clear();
-        } catch (e) {
-          console.warn('Could not clear localStorage:', e);
-        }
-      }
-    };
-
-    // Load initial state from localStorage
-    let isLoggedIn = FallbackSessionStorage.load('isLoggedIn', false);
-    let currentUsername = FallbackSessionStorage.load('username', '');
+    let isLoggedIn = false;
+    let currentUsername = '';
     
     function showLoginScreen() {
       document.getElementById('fallback').innerHTML = `
@@ -90,9 +55,6 @@
       const usernameInput = event.target.querySelector('input[type="text"]');
       currentUsername = usernameInput.value || 'admin';
       isLoggedIn = true;
-      // Save login state to localStorage
-      FallbackSessionStorage.save('isLoggedIn', isLoggedIn);
-      FallbackSessionStorage.save('username', currentUsername);
       initMainDashboard();
     }
     
@@ -100,9 +62,6 @@
       isLoggedIn = false;
       currentUsername = '';
       activeTab = 'dashboard';
-      selectedDevice = 1;
-      // Clear all session data from localStorage
-      FallbackSessionStorage.clear();
       showLoginScreen();
     }
 
@@ -211,9 +170,9 @@
         createdAt: new Date('2025-08-01T11:00:00')
       }
     ];
-    let profiles = FallbackSessionStorage.load('profiles', []);
-    let activeTab = FallbackSessionStorage.load('activeTab', 'dashboard');
-    let selectedDevice = FallbackSessionStorage.load('selectedDevice', 1); // Default to first device
+    let profiles = [];
+    let activeTab = 'dashboard';
+    let selectedDevice = 1; // Default to first device
     
     // Store historical data per device
     let historicalData = {};
@@ -456,7 +415,7 @@
                       <h4>${profile.name}</h4>
                       <p>${profile.description}</p>
                       ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
-                      <p><small>Created: ${new Date(profile.createdAt).toLocaleDateString()}</small></p>
+                      <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
                     </div>
                   `).join('')}
               </div>
@@ -469,14 +428,12 @@
     // Global functions for forms
     window.switchTab = function(tab) {
       activeTab = tab;
-      FallbackSessionStorage.save('activeTab', activeTab);
       updateHeader();
       updateDashboard();
     };
 
     window.selectDevice = function(deviceId) {
       selectedDevice = parseInt(deviceId);
-      FallbackSessionStorage.save('selectedDevice', selectedDevice);
       updateDashboard();
     };
     
@@ -521,7 +478,6 @@
           settings,
           createdAt: new Date()
         });
-        FallbackSessionStorage.save('profiles', profiles);
         updateDashboard();
         // Clear form
         document.getElementById('profile-name').value = '';

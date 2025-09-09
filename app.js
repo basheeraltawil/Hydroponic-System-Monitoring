@@ -1,43 +1,7 @@
 // Hydroponic System Dashboard React Component
-
-// Session persistence utility functions
-const SessionStorage = {
-  save: (key, value) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.warn('Could not save to localStorage:', e);
-    }
-  },
-  load: (key, defaultValue = null) => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch (e) {
-      console.warn('Could not load from localStorage:', e);
-      return defaultValue;
-    }
-  },
-  remove: (key) => {
-    try {
-      localStorage.removeItem(key);
-    } catch (e) {
-      console.warn('Could not remove from localStorage:', e);
-    }
-  },
-  clear: () => {
-    try {
-      localStorage.clear();
-    } catch (e) {
-      console.warn('Could not clear localStorage:', e);
-    }
-  }
-};
-
 function App() {
-  // Load initial state from localStorage
-  const [isLoggedIn, setIsLoggedIn] = React.useState(() => SessionStorage.load('isLoggedIn', false));
-  const [username, setUsername] = React.useState(() => SessionStorage.load('username', ''));
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [username, setUsername] = React.useState('');
   // Device-specific sensor data
   const [deviceSensorData, setDeviceSensorData] = React.useState({
     1: { // Greenhouse Alpha
@@ -95,11 +59,11 @@ function App() {
       createdAt: new Date('2025-08-01T11:00:00')
     }
   ]);
-  const [profiles, setProfiles] = React.useState(() => SessionStorage.load('profiles', []));
-  const [activeTab, setActiveTab] = React.useState(() => SessionStorage.load('activeTab', 'dashboard'));
-  const [selectedSensor, setSelectedSensor] = React.useState(() => SessionStorage.load('selectedSensor', 'temperature'));
-  const [selectedPeriod, setSelectedPeriod] = React.useState(() => SessionStorage.load('selectedPeriod', '1h'));
-  const [selectedDevice, setSelectedDevice] = React.useState(() => SessionStorage.load('selectedDevice', 1)); // Default to first device
+  const [profiles, setProfiles] = React.useState([]);
+  const [activeTab, setActiveTab] = React.useState('dashboard');
+  const [selectedSensor, setSelectedSensor] = React.useState('temperature');
+  const [selectedPeriod, setSelectedPeriod] = React.useState('1h');
+  const [selectedDevice, setSelectedDevice] = React.useState(1); // Default to first device
   
   // Form states - separate from sensor data to prevent clearing
   const [deviceForm, setDeviceForm] = React.useState({
@@ -113,33 +77,6 @@ function App() {
     description: '',
     settings: ''
   });
-
-  // Persist login state to localStorage
-  React.useEffect(() => {
-    SessionStorage.save('isLoggedIn', isLoggedIn);
-    SessionStorage.save('username', username);
-  }, [isLoggedIn, username]);
-
-  // Persist UI state to localStorage
-  React.useEffect(() => {
-    SessionStorage.save('activeTab', activeTab);
-  }, [activeTab]);
-
-  React.useEffect(() => {
-    SessionStorage.save('selectedDevice', selectedDevice);
-  }, [selectedDevice]);
-
-  React.useEffect(() => {
-    SessionStorage.save('selectedSensor', selectedSensor);
-  }, [selectedSensor]);
-
-  React.useEffect(() => {
-    SessionStorage.save('selectedPeriod', selectedPeriod);
-  }, [selectedPeriod]);
-
-  React.useEffect(() => {
-    SessionStorage.save('profiles', profiles);
-  }, [profiles]);
 
   // Initialize historical data storage per device
   React.useEffect(() => {
@@ -431,8 +368,6 @@ function App() {
     setIsLoggedIn(false);
     setUsername('');
     setActiveTab('dashboard');
-    // Clear all session data from localStorage
-    SessionStorage.clear();
   };
 
   // Login screen component
@@ -748,7 +683,7 @@ function App() {
                     {profile.settings && (
                       <pre className="settings-preview">{profile.settings}</pre>
                     )}
-                    <p><small>Created: {new Date(profile.createdAt).toLocaleDateString()}</small></p>
+                    <p><small>Created: {profile.createdAt.toLocaleDateString()}</small></p>
                   </div>
                 ))}
                 {profiles.length === 0 && (
