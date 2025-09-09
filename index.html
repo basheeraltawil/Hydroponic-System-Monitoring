@@ -25,6 +25,7 @@
   <!-- Fallback JavaScript -->
   <script>
     let isLoggedIn = false;
+    let currentUsername = '';
     
     function showLoginScreen() {
       document.getElementById('fallback').innerHTML = `
@@ -51,6 +52,8 @@
     
     window.handleLogin = function(event) {
       event.preventDefault();
+      const usernameInput = event.target.querySelector('input[type="text"]');
+      currentUsername = usernameInput.value || 'admin';
       isLoggedIn = true;
       initMainDashboard();
     }
@@ -66,7 +69,10 @@
                 <button class="tab-button" onclick="switchTab('devices')">🔧 Devices</button>
                 <button class="tab-button" onclick="switchTab('profiles')">👤 Profiles</button>
               </nav>
-              <div class="last-update" id="fallback-time">Last updated: Loading...</div>
+              <div class="header-right-info">
+                <div class="username-display" id="fallback-username">Loading...</div>
+                <div class="last-update" id="fallback-time">Last updated: Loading...</div>
+              </div>
             </div>
           </header>
           <main class="dashboard-main"></main>
@@ -191,8 +197,13 @@
                 👤 Profiles
               </button>
             </nav>
-            <div class="last-update" id="fallback-time">
-              Last updated: ${new Date().toLocaleTimeString()}
+            <div class="header-right-info">
+              <div class="username-display" id="fallback-username">
+                ${currentUsername}
+              </div>
+              <div class="last-update" id="fallback-time">
+                Last updated: ${new Date().toLocaleTimeString()}
+              </div>
             </div>
           </div>
         `;
@@ -422,10 +433,14 @@
         updateDashboard();
       }
       
-      // Always update the time
+      // Always update the time and username
       const timeElement = document.getElementById('fallback-time');
+      const usernameElement = document.getElementById('fallback-username');
       if (timeElement) {
         timeElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      }
+      if (usernameElement) {
+        usernameElement.textContent = currentUsername;
       }
     }
   </script>

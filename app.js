@@ -1,6 +1,7 @@
 // Hydroponic System Dashboard React Component
 function App() {
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [username, setUsername] = React.useState('');
   const [sensorData, setSensorData] = React.useState({
     temperature: 22.5,
     humidity: 65,
@@ -303,6 +304,8 @@ function App() {
   // Handle login
   const handleLogin = (e) => {
     e.preventDefault();
+    const usernameInput = e.target.querySelector('input[type="text"]');
+    setUsername(usernameInput.value || 'admin');
     setIsLoggedIn(true);
   };
 
@@ -361,8 +364,13 @@ function App() {
               👤 Profiles
             </button>
           </nav>
-          <div className="last-update">
-            Last updated: {lastUpdate.toLocaleTimeString()}
+          <div className="header-right-info">
+            <div className="username-display">
+              {username}
+            </div>
+            <div className="last-update">
+              Last updated: {lastUpdate.toLocaleTimeString()}
+            </div>
           </div>
         </div>
       </header>
