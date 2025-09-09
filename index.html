@@ -114,23 +114,34 @@
       initMainDashboard();
     }
     
-    // Fallback sensor data
-    let sensorData = {
-      temperature: 22.5,
-      humidity: 65,
-      electricConductivity: 1200,
-      waterLevel: 85,
-      pH: 6.2,
-      lightIntensity: 75,
-      nutrientLevel: 90,
-      airTemperature: 24.1
+    // Device-specific sensor data
+    let deviceSensorData = {
+      1: { // Greenhouse Alpha
+        temperature: 22.5,
+        humidity: 65,
+        electricConductivity: 1200,
+        waterLevel: 85,
+        pH: 6.2,
+        lightIntensity: 75,
+        nutrientLevel: 90,
+        airTemperature: 24.1
+      },
+      2: { // Greenhouse Beta
+        temperature: 20.8,
+        humidity: 58,
+        electricConductivity: 1350,
+        waterLevel: 72,
+        pH: 6.5,
+        lightIntensity: 68,
+        nutrientLevel: 85,
+        airTemperature: 22.9
+      }
     };
     
-    // Store historical data
-    let historicalData = {};
-    Object.keys(sensorData).forEach(key => {
-      historicalData[key] = [];
-    });
+    // Get current device sensor data
+    function getCurrentSensorData() {
+      return deviceSensorData[selectedDevice] || deviceSensorData[1];
+    }
     
     // Store devices and profiles
     let devices = [
@@ -162,6 +173,17 @@
     let profiles = [];
     let activeTab = 'dashboard';
     let selectedDevice = 1; // Default to first device
+    
+    // Store historical data per device
+    let historicalData = {};
+    
+    // Initialize historical data for each device
+    devices.forEach(device => {
+      historicalData[device.id] = {};
+      Object.keys(deviceSensorData[device.id] || {}).forEach(key => {
+        historicalData[device.id][key] = [];
+      });
+    });
     
     const sensors = [
       { key: 'temperature', title: 'Water Temperature', unit: '°C', icon: '🌡️' },
@@ -262,7 +284,8 @@
         grid.innerHTML = '';
         
         sensors.forEach(sensor => {
-          const value = sensorData[sensor.key];
+          const currentData = getCurrentSensorData();
+          const value = currentData[sensor.key];
           const status = getStatusColor(sensor.key, value);
           const displayValue = typeof value === 'number' ? value.toFixed(1) : value;
           const statusText = status === 'optimal' ? '✓ Good' : status === 'warning' ? '⚠ Warning' : '⚡ Critical';
@@ -465,11 +488,12 @@
     
     window.exportToCSV = function() {
       const csvData = [];
-      const headers = ['Timestamp', ...Object.keys(sensorData)];
+      const currentData = getCurrentSensorData();
+      const headers = ['Timestamp', ...Object.keys(currentData)];
       csvData.push(headers.join(','));
 
       // Add current data as sample
-      const currentRow = [new Date().toISOString(), ...Object.values(sensorData)];
+      const currentRow = [new Date().toISOString(), ...Object.values(currentData)];
       csvData.push(currentRow.join(','));
       
       const csvContent = csvData.join('\n');
@@ -477,7 +501,7 @@
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `hydroponic-data-${getSelectedDevice()?.name}-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
     };
@@ -490,29 +514,45 @@
     function simulateDataUpdate() {
       const timestamp = new Date();
       
-      // Store historical data
-      Object.keys(sensorData).forEach(sensor => {
-        if (!historicalData[sensor]) historicalData[sensor] = [];
-        historicalData[sensor].push({
-          timestamp,
-          value: sensorData[sensor]
-        });
-        // Keep only last 100 data points
-        if (historicalData[sensor].length > 100) {
-          historicalData[sensor] = historicalData[sensor].slice(-100);
+      // Update sensor data for each device with different variations
+      Object.keys(deviceSensorData).forEach(deviceId => {
+        const data = deviceSensorData[deviceId];
+        
+        // Store historical data for this device
+        if (!historicalData[deviceId]) {
+          historicalData[deviceId] = {};
+          Object.keys(data).forEach(sensor => {
+            historicalData[deviceId][sensor] = [];
+          });
         }
+        
+        Object.keys(data).forEach(sensor => {
+          if (!historicalData[deviceId][sensor]) historicalData[deviceId][sensor] = [];
+          historicalData[deviceId][sensor].push({
+            timestamp,
+            value: data[sensor]
+          });
+          // Keep only last 100 data points
+          if (historicalData[deviceId][sensor].length > 100) {
+            historicalData[deviceId][sensor] = historicalData[deviceId][sensor].slice(-100);
+          }
+        });
+        
+        // Apply different variation patterns for different devices
+        const isFirstDevice = deviceId == 1;
+        const variationMultiplier = isFirstDevice ? 1 : 1.2; // Second device has more variation
+        
+        deviceSensorData[deviceId] = {
+          temperature: Math.max(18, Math.min(28, data.temperature + (Math.random() - 0.5) * 0.5 * variationMultiplier)),
+          humidity: Math.max(50, Math.min(80, data.humidity + (Math.random() - 0.5) * 2 * variationMultiplier)),
+          electricConductivity: Math.max(800, Math.min(1600, data.electricConductivity + (Math.random() - 0.5) * 50 * variationMultiplier)),
+          waterLevel: Math.max(20, Math.min(100, data.waterLevel + (Math.random() - 0.5) * 3 * variationMultiplier)),
+          pH: Math.max(5.5, Math.min(7.5, data.pH + (Math.random() - 0.5) * 0.1 * variationMultiplier)),
+          lightIntensity: Math.max(40, Math.min(100, data.lightIntensity + (Math.random() - 0.5) * 5 * variationMultiplier)),
+          nutrientLevel: Math.max(50, Math.min(100, data.nutrientLevel + (Math.random() - 0.5) * 2 * variationMultiplier)),
+          airTemperature: Math.max(20, Math.min(30, data.airTemperature + (Math.random() - 0.5) * 0.3 * variationMultiplier))
+        };
       });
-      
-      sensorData = {
-        temperature: Math.max(18, Math.min(28, sensorData.temperature + (Math.random() - 0.5) * 0.5)),
-        humidity: Math.max(50, Math.min(80, sensorData.humidity + (Math.random() - 0.5) * 2)),
-        electricConductivity: Math.max(800, Math.min(1600, sensorData.electricConductivity + (Math.random() - 0.5) * 50)),
-        waterLevel: Math.max(20, Math.min(100, sensorData.waterLevel + (Math.random() - 0.5) * 3)),
-        pH: Math.max(5.5, Math.min(7.5, sensorData.pH + (Math.random() - 0.5) * 0.1)),
-        lightIntensity: Math.max(40, Math.min(100, sensorData.lightIntensity + (Math.random() - 0.5) * 5)),
-        nutrientLevel: Math.max(50, Math.min(100, sensorData.nutrientLevel + (Math.random() - 0.5) * 2)),
-        airTemperature: Math.max(20, Math.min(30, sensorData.airTemperature + (Math.random() - 0.5) * 0.3))
-      };
       
       // Only update dashboard if we're on the dashboard tab
       if (activeTab === 'dashboard') {
