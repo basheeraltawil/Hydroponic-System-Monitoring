@@ -236,6 +236,11 @@ function App() {
       setDevices(prev => [...prev, {
         id: Date.now(),
         ...deviceForm,
+        serial: `HY-RPI-${String(Date.now()).slice(-3).padStart(3, '0')}`,
+        firmware: '1.2.0',
+        profile: 'default',
+        status: 'online',
+        lastSeen: new Date(),
         createdAt: new Date()
       }]);
       setDeviceForm({ name: '', type: '', location: '' });
@@ -679,16 +684,16 @@ function App() {
                   <div key={device.id} className="device-card">
                     <div className="device-header">
                       <h4>{device.name}</h4>
-                      <span className={`status-badge ${device.status}`}>
-                        {device.status}
+                      <span className={`status-badge ${device.status || 'unknown'}`}>
+                        {device.status || 'unknown'}
                       </span>
                     </div>
                     <div className="device-info">
-                      <p><strong>Serial:</strong> {device.serial}</p>
-                      <p><strong>Location:</strong> {device.location}</p>
-                      <p><strong>Firmware:</strong> {device.firmware}</p>
-                      <p><strong>Profile:</strong> {device.profile}</p>
-                      <p><strong>Last Seen:</strong> {device.lastSeen.toLocaleDateString()}, {device.lastSeen.toLocaleTimeString()}</p>
+                      <p><strong>Serial:</strong> {device.serial || 'N/A'}</p>
+                      <p><strong>Location:</strong> {device.location || 'Unknown'}</p>
+                      <p><strong>Firmware:</strong> {device.firmware || 'Unknown'}</p>
+                      <p><strong>Profile:</strong> {device.profile || 'default'}</p>
+                      <p><strong>Last Seen:</strong> {device.lastSeen ? `${device.lastSeen.toLocaleDateString()}, ${device.lastSeen.toLocaleTimeString()}` : 'Never'}</p>
                     </div>
                     <div className="device-actions">
                       <button className="action-button small">Configure</button>
