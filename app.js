@@ -130,7 +130,14 @@ function App() {
     if (deviceForm.name && deviceForm.type && deviceForm.location) {
       setDevices(prev => [...prev, {
         id: Date.now(),
-        ...deviceForm,
+        name: deviceForm.name,
+        type: deviceForm.type,
+        location: deviceForm.location,
+        serial: `HY-RPI-${String(prev.length + 3).padStart(3, '0')}`,
+        firmware: '1.2.0',
+        profile: 'default',
+        status: 'online',
+        lastSeen: new Date(),
         createdAt: new Date()
       }]);
       setDeviceForm({ name: '', type: '', location: '' });
