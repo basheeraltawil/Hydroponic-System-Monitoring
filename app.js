@@ -249,16 +249,35 @@ function App() {
   const handleAddDevice = (e) => {
     e.preventDefault();
     if (deviceForm.name && deviceForm.type && deviceForm.location) {
+      const newDeviceId = Date.now();
+      
+      // Add the new device
       setDevices(prev => [...prev, {
-        id: Date.now(),
+        id: newDeviceId,
         ...deviceForm,
-        serial: `HY-RPI-${String(Date.now()).slice(-3).padStart(3, '0')}`,
+        serial: `HY-RPI-${String(newDeviceId).slice(-3).padStart(3, '0')}`,
         firmware: '1.2.0',
         profile: 'default',
         status: 'online',
         lastSeen: new Date(),
         createdAt: new Date()
       }]);
+      
+      // Initialize sensor data for the new device with realistic random values
+      setDeviceSensorData(prev => ({
+        ...prev,
+        [newDeviceId]: {
+          temperature: Math.round((Math.random() * (26 - 20) + 20) * 10) / 10, // 20-26°C
+          humidity: Math.round((Math.random() * (70 - 60) + 60) * 10) / 10, // 60-70%
+          electricConductivity: Math.round(Math.random() * (1400 - 1000) + 1000), // 1000-1400 μS/cm
+          waterLevel: Math.round((Math.random() * (100 - 70) + 70) * 10) / 10, // 70-100%
+          pH: Math.round((Math.random() * (6.8 - 6.0) + 6.0) * 10) / 10, // 6.0-6.8
+          lightIntensity: Math.round((Math.random() * (85 - 60) + 60) * 10) / 10, // 60-85%
+          nutrientLevel: Math.round((Math.random() * (100 - 80) + 80) * 10) / 10, // 80-100%
+          airTemperature: Math.round((Math.random() * (26 - 22) + 22) * 10) / 10 // 22-26°C
+        }
+      }));
+      
       setDeviceForm({ name: '', type: '', location: '' });
     }
   };
