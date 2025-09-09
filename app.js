@@ -743,7 +743,7 @@ function App() {
                     {profile.settings && (
                       <pre className="settings-preview">{profile.settings}</pre>
                     )}
-                    <p><small>Created: {profile.createdAt.toLocaleDateString()}</small></p>
+                    <p><small>Created: {new Date(profile.createdAt).toLocaleDateString()}</small></p>
                   </div>
                 ))}
                 {profiles.length === 0 && (

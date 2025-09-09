@@ -456,7 +456,7 @@
                       <h4>${profile.name}</h4>
                       <p>${profile.description}</p>
                       ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
-                      <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
+                      <p><small>Created: ${new Date(profile.createdAt).toLocaleDateString()}</small></p>
                     </div>
                   `).join('')}
               </div>
