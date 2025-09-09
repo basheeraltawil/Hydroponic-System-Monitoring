@@ -1,9 +1,55 @@
+// localStorage utilities for state persistence
+const STORAGE_KEYS = {
+  LOGIN_STATE: 'hydroponicDashboard_loginState',
+  DEVICE_SENSOR_DATA: 'hydroponicDashboard_deviceSensorData',
+  DEVICES: 'hydroponicDashboard_devices',
+  PROFILES: 'hydroponicDashboard_profiles',
+  ACTIVE_TAB: 'hydroponicDashboard_activeTab',
+  SELECTED_DEVICE: 'hydroponicDashboard_selectedDevice',
+  DEVICE_FORM: 'hydroponicDashboard_deviceForm',
+  PROFILE_FORM: 'hydroponicDashboard_profileForm'
+};
+
+const saveToStorage = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data, (key, value) => {
+      // Handle Date objects
+      if (value instanceof Date) {
+        return { __dateType: true, value: value.toISOString() };
+      }
+      return value;
+    }));
+  } catch (error) {
+    console.warn('Failed to save to localStorage:', error);
+  }
+};
+
+const loadFromStorage = (key, defaultValue) => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored, (key, value) => {
+        // Restore Date objects
+        if (value && typeof value === 'object' && value.__dateType) {
+          return new Date(value.value);
+        }
+        return value;
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load from localStorage:', error);
+  }
+  return defaultValue;
+};
+
 // Hydroponic System Dashboard React Component
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
-  const [username, setUsername] = React.useState('');
-  // Device-specific sensor data
-  const [deviceSensorData, setDeviceSensorData] = React.useState({
+  // Load login state from localStorage
+  const savedLoginState = loadFromStorage(STORAGE_KEYS.LOGIN_STATE, { isLoggedIn: false, username: '' });
+  const [isLoggedIn, setIsLoggedIn] = React.useState(savedLoginState.isLoggedIn);
+  const [username, setUsername] = React.useState(savedLoginState.username);
+  // Device-specific sensor data - load from localStorage
+  const [deviceSensorData, setDeviceSensorData] = React.useState(loadFromStorage(STORAGE_KEYS.DEVICE_SENSOR_DATA, {
     1: { // Greenhouse Alpha
       temperature: 22.5,
       humidity: 65,
@@ -24,7 +70,7 @@ function App() {
       nutrientLevel: 85,
       airTemperature: 22.9
     }
-  });
+  }));
 
   // Get current device sensor data
   const getCurrentSensorData = () => {
@@ -33,7 +79,7 @@ function App() {
 
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
   const [historicalData, setHistoricalData] = React.useState({});
-  const [devices, setDevices] = React.useState([
+  const [devices, setDevices] = React.useState(loadFromStorage(STORAGE_KEYS.DEVICES, [
     {
       id: 1,
       name: 'Greenhouse Alpha',
@@ -58,25 +104,25 @@ function App() {
       lastSeen: new Date('2025-08-09T08:56:05'),
       createdAt: new Date('2025-08-01T11:00:00')
     }
-  ]);
-  const [profiles, setProfiles] = React.useState([]);
-  const [activeTab, setActiveTab] = React.useState('dashboard');
+  ]));
+  const [profiles, setProfiles] = React.useState(loadFromStorage(STORAGE_KEYS.PROFILES, []));
+  const [activeTab, setActiveTab] = React.useState(loadFromStorage(STORAGE_KEYS.ACTIVE_TAB, 'dashboard'));
   const [selectedSensor, setSelectedSensor] = React.useState('temperature');
   const [selectedPeriod, setSelectedPeriod] = React.useState('1h');
-  const [selectedDevice, setSelectedDevice] = React.useState(1); // Default to first device
+  const [selectedDevice, setSelectedDevice] = React.useState(loadFromStorage(STORAGE_KEYS.SELECTED_DEVICE, 1)); // Default to first device
   
-  // Form states - separate from sensor data to prevent clearing
-  const [deviceForm, setDeviceForm] = React.useState({
+  // Form states - separate from sensor data to prevent clearing - load from localStorage
+  const [deviceForm, setDeviceForm] = React.useState(loadFromStorage(STORAGE_KEYS.DEVICE_FORM, {
     name: '',
     type: '',
     location: ''
-  });
+  }));
   
-  const [profileForm, setProfileForm] = React.useState({
+  const [profileForm, setProfileForm] = React.useState(loadFromStorage(STORAGE_KEYS.PROFILE_FORM, {
     name: '',
     description: '',
     settings: ''
-  });
+  }));
 
   // Initialize historical data storage per device
   React.useEffect(() => {
@@ -146,6 +192,39 @@ function App() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Save state to localStorage whenever it changes
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.LOGIN_STATE, { isLoggedIn, username });
+  }, [isLoggedIn, username]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
+  }, [deviceSensorData]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVICES, devices);
+  }, [devices]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PROFILES, profiles);
+  }, [profiles]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.SELECTED_DEVICE, selectedDevice);
+  }, [selectedDevice]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVICE_FORM, deviceForm);
+  }, [deviceForm]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PROFILE_FORM, profileForm);
+  }, [profileForm]);
 
   // Function to get status color based on sensor value and optimal ranges
   const getStatusColor = (sensorType, value) => {

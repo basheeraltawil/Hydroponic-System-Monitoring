@@ -24,8 +24,50 @@
   
   <!-- Fallback JavaScript -->
   <script>
-    let isLoggedIn = false;
-    let currentUsername = '';
+    // localStorage utilities for fallback JavaScript - same as React app
+    const FALLBACK_STORAGE_KEYS = {
+      LOGIN_STATE: 'hydroponicDashboard_loginState',
+      DEVICE_SENSOR_DATA: 'hydroponicDashboard_deviceSensorData', 
+      DEVICES: 'hydroponicDashboard_devices',
+      PROFILES: 'hydroponicDashboard_profiles',
+      ACTIVE_TAB: 'hydroponicDashboard_activeTab',
+      SELECTED_DEVICE: 'hydroponicDashboard_selectedDevice'
+    };
+
+    const saveToFallbackStorage = (key, data) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(data, (key, value) => {
+          if (value instanceof Date) {
+            return { __dateType: true, value: value.toISOString() };
+          }
+          return value;
+        }));
+      } catch (error) {
+        console.warn('Failed to save to localStorage:', error);
+      }
+    };
+
+    const loadFromFallbackStorage = (key, defaultValue) => {
+      try {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          return JSON.parse(stored, (key, value) => {
+            if (value && typeof value === 'object' && value.__dateType) {
+              return new Date(value.value);
+            }
+            return value;
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to load from localStorage:', error);
+      }
+      return defaultValue;
+    };
+
+    // Load state from localStorage
+    const savedLoginState = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.LOGIN_STATE, { isLoggedIn: false, username: '' });
+    let isLoggedIn = savedLoginState.isLoggedIn;
+    let currentUsername = savedLoginState.username;
     
     function showLoginScreen() {
       document.getElementById('fallback').innerHTML = `
@@ -55,6 +97,7 @@
       const usernameInput = event.target.querySelector('input[type="text"]');
       currentUsername = usernameInput.value || 'admin';
       isLoggedIn = true;
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.LOGIN_STATE, { isLoggedIn, username: currentUsername });
       initMainDashboard();
     }
     
@@ -62,6 +105,8 @@
       isLoggedIn = false;
       currentUsername = '';
       activeTab = 'dashboard';
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.LOGIN_STATE, { isLoggedIn, username: currentUsername });
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, activeTab);
       showLoginScreen();
     }
 
@@ -114,8 +159,8 @@
       initMainDashboard();
     }
     
-    // Device-specific sensor data
-    let deviceSensorData = {
+    // Device-specific sensor data - load from localStorage
+    let deviceSensorData = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, {
       1: { // Greenhouse Alpha
         temperature: 22.5,
         humidity: 65,
@@ -136,15 +181,15 @@
         nutrientLevel: 85,
         airTemperature: 22.9
       }
-    };
+    });
     
     // Get current device sensor data
     function getCurrentSensorData() {
       return deviceSensorData[selectedDevice] || deviceSensorData[1];
     }
     
-    // Store devices and profiles
-    let devices = [
+    // Store devices and profiles - load from localStorage
+    let devices = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, [
       {
         id: 1,
         name: 'Greenhouse Alpha',
@@ -169,10 +214,10 @@
         lastSeen: new Date('2025-08-09T08:56:05'),
         createdAt: new Date('2025-08-01T11:00:00')
       }
-    ];
-    let profiles = [];
-    let activeTab = 'dashboard';
-    let selectedDevice = 1; // Default to first device
+    ]);
+    let profiles = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.PROFILES, []);
+    let activeTab = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, 'dashboard');
+    let selectedDevice = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, 1); // Default to first device
     
     // Store historical data per device
     let historicalData = {};
@@ -382,7 +427,7 @@
                         <p><strong>Location:</strong> ${device.location || 'Unknown'}</p>
                         <p><strong>Firmware:</strong> ${device.firmware || 'Unknown'}</p>
                         <p><strong>Profile:</strong> ${device.profile || 'default'}</p>
-                        <p><strong>Last Seen:</strong> ${device.lastSeen ? `${device.lastSeen.toLocaleDateString()}, ${device.lastSeen.toLocaleTimeString()}` : 'Never'}</p>
+                        <p><strong>Last Seen:</strong> ${device.lastSeen ? `${new Date(device.lastSeen).toLocaleDateString()}, ${new Date(device.lastSeen).toLocaleTimeString()}` : 'Never'}</p>
                       </div>
                       <div class="device-actions">
                         <button class="action-button small">Configure</button>
@@ -415,7 +460,7 @@
                       <h4>${profile.name}</h4>
                       <p>${profile.description}</p>
                       ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
-                      <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
+                      <p><small>Created: ${new Date(profile.createdAt).toLocaleDateString()}</small></p>
                     </div>
                   `).join('')}
               </div>
@@ -428,12 +473,14 @@
     // Global functions for forms
     window.switchTab = function(tab) {
       activeTab = tab;
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, activeTab);
       updateHeader();
       updateDashboard();
     };
 
     window.selectDevice = function(deviceId) {
       selectedDevice = parseInt(deviceId);
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, selectedDevice);
       updateDashboard();
     };
     
@@ -456,6 +503,7 @@
           lastSeen: new Date(),
           createdAt: new Date()
         });
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, devices);
         updateDashboard();
         // Clear form
         document.getElementById('device-name').value = '';
@@ -478,6 +526,7 @@
           settings,
           createdAt: new Date()
         });
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.PROFILES, profiles);
         updateDashboard();
         // Clear form
         document.getElementById('profile-name').value = '';
@@ -553,6 +602,9 @@
           airTemperature: Math.max(20, Math.min(30, data.airTemperature + (Math.random() - 0.5) * 0.3 * variationMultiplier))
         };
       });
+      
+      // Save updated sensor data to localStorage
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
       
       // Only update dashboard if we're on the dashboard tab
       if (activeTab === 'dashboard') {
