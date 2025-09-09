@@ -17,30 +17,69 @@
   
   <!-- Fallback content in case React doesn't load -->
   <div id="fallback" style="display: none;">
-    <div class="dashboard">
-      <header class="dashboard-header">
-        <h1>🌱 Hydroponic System Dashboard</h1>
-        <div class="last-update" id="fallback-time">
-          Last updated: Loading...
-        </div>
-      </header>
-      
-      <main class="dashboard-main">
-        <div class="sensors-grid" id="fallback-grid">
-          <!-- Sensors will be populated by JavaScript -->
-        </div>
-      </main>
-      
-      <footer class="dashboard-footer">
-        <p>Raspberry Pi Hydroponic Monitoring System</p>
-      </footer>
-    </div>
+    <!-- This will be populated by JavaScript -->
   </div>
 
   <script type="text/babel" src="app.js"></script>
   
   <!-- Fallback JavaScript -->
   <script>
+    let isLoggedIn = false;
+    
+    function showLoginScreen() {
+      document.getElementById('fallback').innerHTML = `
+        <div class="login-container">
+          <div class="login-form">
+            <h1>🌱 Hydroponic System Dashboard</h1>
+            <h2>System Login</h2>
+            <form onsubmit="handleLogin(event)">
+              <div class="form-group">
+                <label>Username:</label>
+                <input type="text" value="admin" class="form-input" required />
+              </div>
+              <div class="form-group">
+                <label>Password:</label>
+                <input type="password" value="admin" class="form-input" required />
+              </div>
+              <button type="submit" class="login-button">Login</button>
+            </form>
+            <p class="login-note">Default: admin / admin</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    window.handleLogin = function(event) {
+      event.preventDefault();
+      isLoggedIn = true;
+      initMainDashboard();
+    }
+    
+    function initMainDashboard() {
+      document.getElementById('fallback').innerHTML = `
+        <div class="dashboard">
+          <header class="dashboard-header">
+            <h1>🌱 Hydroponic System Dashboard</h1>
+            <div class="header-controls">
+              <nav class="tab-navigation">
+                <button class="tab-button active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+                <button class="tab-button" onclick="switchTab('devices')">🔧 Devices</button>
+                <button class="tab-button" onclick="switchTab('profiles')">👤 Profiles</button>
+              </nav>
+              <div class="last-update" id="fallback-time">Last updated: Loading...</div>
+            </div>
+          </header>
+          <main class="dashboard-main"></main>
+          <footer class="dashboard-footer">
+            <p>Raspberry Pi Hydroponic Monitoring System</p>
+          </footer>
+        </div>
+      `;
+      updateHeader();
+      updateDashboard();
+      startDataUpdates();
+    }
+    
     // Check if React loaded, if not show fallback
     setTimeout(() => {
       if (typeof React === 'undefined' || document.getElementById('root').innerHTML === '') {
@@ -50,60 +89,94 @@
     }, 2000);
     
     function initFallbackDashboard() {
-      // Fallback sensor data
-      let sensorData = {
-        temperature: 22.5,
-        humidity: 65,
-        electricConductivity: 1200,
-        waterLevel: 85,
-        pH: 6.2,
-        lightIntensity: 75,
-        nutrientLevel: 90,
-        airTemperature: 24.1
-      };
-      
-      // Store historical data
-      let historicalData = {};
-      Object.keys(sensorData).forEach(key => {
-        historicalData[key] = [];
-      });
-      
-      // Store devices and profiles
-      let devices = [];
-      let profiles = [];
-      let activeTab = 'dashboard';
-      
-      const sensors = [
-        { key: 'temperature', title: 'Water Temperature', unit: '°C', icon: '🌡️' },
-        { key: 'humidity', title: 'Humidity', unit: '%', icon: '💧' },
-        { key: 'electricConductivity', title: 'Electric Conductivity', unit: 'μS/cm', icon: '⚡' },
-        { key: 'waterLevel', title: 'Water Level', unit: '%', icon: '🌊' },
-        { key: 'pH', title: 'pH Level', unit: '', icon: '🧪' },
-        { key: 'lightIntensity', title: 'Light Intensity', unit: '%', icon: '☀️' },
-        { key: 'nutrientLevel', title: 'Nutrient Level', unit: '%', icon: '🥬' },
-        { key: 'airTemperature', title: 'Air Temperature', unit: '°C', icon: '🌡️' }
-      ];
-      
-      function getStatusColor(sensorType, value) {
-        const ranges = {
-          temperature: { optimal: [20, 26], warning: [18, 28] },
-          humidity: { optimal: [60, 70], warning: [50, 80] },
-          electricConductivity: { optimal: [1000, 1400], warning: [800, 1600] },
-          waterLevel: { optimal: [70, 100], warning: [40, 100] },
-          pH: { optimal: [6.0, 6.8], warning: [5.5, 7.5] },
-          lightIntensity: { optimal: [60, 85], warning: [40, 100] },
-          nutrientLevel: { optimal: [80, 100], warning: [60, 100] },
-          airTemperature: { optimal: [22, 26], warning: [20, 30] }
-        };
-
-        const range = ranges[sensorType];
-        if (value >= range.optimal[0] && value <= range.optimal[1]) return 'optimal';
-        if (value >= range.warning[0] && value <= range.warning[1]) return 'warning';
-        return 'critical';
+      if (!isLoggedIn) {
+        showLoginScreen();
+        return;
       }
       
-      function updateHeader() {
-        const header = document.querySelector('.dashboard-header');
+      initMainDashboard();
+    }
+    
+    // Fallback sensor data
+    let sensorData = {
+      temperature: 22.5,
+      humidity: 65,
+      electricConductivity: 1200,
+      waterLevel: 85,
+      pH: 6.2,
+      lightIntensity: 75,
+      nutrientLevel: 90,
+      airTemperature: 24.1
+    };
+    
+    // Store historical data
+    let historicalData = {};
+    Object.keys(sensorData).forEach(key => {
+      historicalData[key] = [];
+    });
+    
+    // Store devices and profiles
+    let devices = [
+      {
+        id: 1,
+        name: 'Greenhouse Alpha',
+        type: 'Hydroponic Controller',
+        location: 'Sector A',
+        serial: 'HY-RPI-001',
+        firmware: '1.2.3',
+        profile: 'lettuce-optimal',
+        status: 'online',
+        lastSeen: new Date('2025-08-09T09:56:05'),
+        createdAt: new Date('2025-08-01T10:00:00')
+      },
+      {
+        id: 2,
+        name: 'Greenhouse Beta',
+        type: 'Hydroponic Controller',
+        location: 'Sector B',
+        serial: 'HY-RPI-002',
+        firmware: '1.2.1',
+        profile: 'tomato-growth',
+        status: 'offline',
+        lastSeen: new Date('2025-08-09T08:56:05'),
+        createdAt: new Date('2025-08-01T11:00:00')
+      }
+    ];
+    let profiles = [];
+    let activeTab = 'dashboard';
+    
+    const sensors = [
+      { key: 'temperature', title: 'Water Temperature', unit: '°C', icon: '🌡️' },
+      { key: 'humidity', title: 'Humidity', unit: '%', icon: '💧' },
+      { key: 'electricConductivity', title: 'Electric Conductivity', unit: 'μS/cm', icon: '⚡' },
+      { key: 'waterLevel', title: 'Water Level', unit: '%', icon: '🌊' },
+      { key: 'pH', title: 'pH Level', unit: '', icon: '🧪' },
+      { key: 'lightIntensity', title: 'Light Intensity', unit: '%', icon: '☀️' },
+      { key: 'nutrientLevel', title: 'Nutrient Level', unit: '%', icon: '🥬' },
+      { key: 'airTemperature', title: 'Air Temperature', unit: '°C', icon: '🌡️' }
+    ];
+    
+    function getStatusColor(sensorType, value) {
+      const ranges = {
+        temperature: { optimal: [20, 26], warning: [18, 28] },
+        humidity: { optimal: [60, 70], warning: [50, 80] },
+        electricConductivity: { optimal: [1000, 1400], warning: [800, 1600] },
+        waterLevel: { optimal: [70, 100], warning: [40, 100] },
+        pH: { optimal: [6.0, 6.8], warning: [5.5, 7.5] },
+        lightIntensity: { optimal: [60, 85], warning: [40, 100] },
+        nutrientLevel: { optimal: [80, 100], warning: [60, 100] },
+        airTemperature: { optimal: [22, 26], warning: [20, 30] }
+      };
+
+      const range = ranges[sensorType];
+      if (value >= range.optimal[0] && value <= range.optimal[1]) return 'optimal';
+      if (value >= range.warning[0] && value <= range.warning[1]) return 'warning';
+      return 'critical';
+    }
+    
+    function updateHeader() {
+      const header = document.querySelector('.dashboard-header');
+      if (header) {
         header.innerHTML = `
           <h1>🌱 Hydroponic System Dashboard</h1>
           <div class="header-controls">
@@ -124,233 +197,236 @@
           </div>
         `;
       }
+    }
+    
+    function updateDashboard() {
+      const main = document.querySelector('.dashboard-main');
+      if (!main) return;
       
-      function updateDashboard() {
-        const main = document.querySelector('.dashboard-main');
-        
-        if (activeTab === 'dashboard') {
-          main.innerHTML = `
-            <div class="dashboard-content">
-              <div class="dashboard-actions">
-                <button class="action-button export-btn" onclick="exportToCSV()">
-                  💾 Export CSV
-                </button>
-              </div>
-              <div class="sensors-grid" id="fallback-grid"></div>
+      if (activeTab === 'dashboard') {
+        main.innerHTML = `
+          <div class="dashboard-content">
+            <div class="dashboard-actions">
+              <button class="action-button export-btn" onclick="exportToCSV()">
+                💾 Export CSV
+              </button>
             </div>
-          `;
+            <div class="sensors-grid" id="fallback-grid"></div>
+          </div>
+        `;
+        
+        const grid = document.getElementById('fallback-grid');
+        grid.innerHTML = '';
+        
+        sensors.forEach(sensor => {
+          const value = sensorData[sensor.key];
+          const status = getStatusColor(sensor.key, value);
+          const displayValue = typeof value === 'number' ? value.toFixed(1) : value;
+          const statusText = status === 'optimal' ? '✓ Good' : status === 'warning' ? '⚠ Warning' : '⚡ Critical';
           
-          const grid = document.getElementById('fallback-grid');
-          grid.innerHTML = '';
-          
-          sensors.forEach(sensor => {
-            const value = sensorData[sensor.key];
-            const status = getStatusColor(sensor.key, value);
-            const displayValue = typeof value === 'number' ? value.toFixed(1) : value;
-            const statusText = status === 'optimal' ? '✓ Good' : status === 'warning' ? '⚠ Warning' : '⚡ Critical';
-            
-            const card = document.createElement('div');
-            card.className = `sensor-card ${status}`;
-            card.innerHTML = `
-              <div class="sensor-icon">${sensor.icon}</div>
-              <div class="sensor-info">
-                <h3>${sensor.title}</h3>
-                <div class="sensor-value">
-                  ${displayValue}<span class="unit">${sensor.unit}</span>
-                </div>
-                <div class="status-indicator ${status}">
-                  ${statusText}
-                </div>
+          const card = document.createElement('div');
+          card.className = `sensor-card ${status}`;
+          card.innerHTML = `
+            <div class="sensor-icon">${sensor.icon}</div>
+            <div class="sensor-info">
+              <h3>${sensor.title}</h3>
+              <div class="sensor-value">
+                ${displayValue}<span class="unit">${sensor.unit}</span>
               </div>
-            `;
-            grid.appendChild(card);
-          });
-        } else if (activeTab === 'devices') {
-          main.innerHTML = `
-            <div class="management-content">
-              <div class="form-section">
-                <h3>Add New Device</h3>
-                <form class="management-form" onsubmit="addDevice(event)">
-                  <input type="text" id="device-name" placeholder="Device Name" class="form-input" required>
-                  <input type="text" id="device-type" placeholder="Device Type" class="form-input" required>
-                  <input type="text" id="device-location" placeholder="Location" class="form-input" required>
-                  <button type="submit" class="action-button">Add Device</button>
-                </form>
-              </div>
-              <div class="list-section">
-                <h3>Devices (${devices.length})</h3>
-                <div class="items-grid" id="devices-list">
-                  ${devices.length === 0 ? '<p class="empty-state">No devices added yet. Add your first device above!</p>' : 
-                    devices.map(device => `
-                      <div class="item-card">
-                        <h4>${device.name}</h4>
-                        <p><strong>Type:</strong> ${device.type}</p>
-                        <p><strong>Location:</strong> ${device.location}</p>
-                        <p><small>Added: ${device.createdAt.toLocaleDateString()}</small></p>
-                      </div>
-                    `).join('')}
-                </div>
+              <div class="status-indicator ${status}">
+                ${statusText}
               </div>
             </div>
           `;
-        } else if (activeTab === 'profiles') {
-          main.innerHTML = `
-            <div class="management-content">
-              <div class="form-section">
-                <h3>Create New Profile</h3>
-                <form class="management-form" onsubmit="addProfile(event)">
-                  <input type="text" id="profile-name" placeholder="Profile Name" class="form-input" required>
-                  <textarea id="profile-description" placeholder="Profile Description" class="form-textarea" rows="3" required></textarea>
-                  <textarea id="profile-settings" placeholder="Settings (JSON format)" class="form-textarea" rows="4"></textarea>
-                  <button type="submit" class="action-button">Create Profile</button>
-                </form>
-              </div>
-              <div class="list-section">
-                <h3>Profiles (${profiles.length})</h3>
-                <div class="items-grid" id="profiles-list">
-                  ${profiles.length === 0 ? '<p class="empty-state">No profiles created yet. Create your first profile above!</p>' : 
-                    profiles.map(profile => `
-                      <div class="item-card">
-                        <h4>${profile.name}</h4>
-                        <p>${profile.description}</p>
-                        ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
-                        <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
-                      </div>
-                    `).join('')}
-                </div>
-              </div>
-            </div>
-          `;
-        }
-      }
-      
-      // Global functions for forms
-      window.switchTab = function(tab) {
-        activeTab = tab;
-        updateHeader();
-        updateDashboard();
-      };
-      
-      window.addDevice = function(event) {
-        event.preventDefault();
-        const name = document.getElementById('device-name').value;
-        const type = document.getElementById('device-type').value;
-        const location = document.getElementById('device-location').value;
-        
-        if (name && type && location) {
-          devices.push({
-            id: Date.now(),
-            name,
-            type,
-            location,
-            createdAt: new Date()
-          });
-          updateDashboard();
-          // Clear form
-          document.getElementById('device-name').value = '';
-          document.getElementById('device-type').value = '';
-          document.getElementById('device-location').value = '';
-        }
-      };
-      
-      window.addProfile = function(event) {
-        event.preventDefault();
-        const name = document.getElementById('profile-name').value;
-        const description = document.getElementById('profile-description').value;
-        const settings = document.getElementById('profile-settings').value;
-        
-        if (name && description) {
-          profiles.push({
-            id: Date.now(),
-            name,
-            description,
-            settings,
-            createdAt: new Date()
-          });
-          updateDashboard();
-          // Clear form
-          document.getElementById('profile-name').value = '';
-          document.getElementById('profile-description').value = '';
-          document.getElementById('profile-settings').value = '';
-        }
-      };
-      
-      window.exportToCSV = function() {
-        const csvData = [];
-        const headers = ['Timestamp', ...Object.keys(sensorData)];
-        csvData.push(headers.join(','));
-
-        // Add current data as sample
-        const currentRow = [new Date().toISOString(), ...Object.values(sensorData)];
-        csvData.push(currentRow.join(','));
-        
-        // Add historical data if available
-        if (historicalData.temperature && historicalData.temperature.length > 0) {
-          historicalData.temperature.forEach((point, index) => {
-            const row = [point.timestamp.toISOString()];
-            Object.keys(sensorData).forEach(sensor => {
-              const value = historicalData[sensor]?.[index]?.value || '';
-              row.push(value);
-            });
-            csvData.push(row.join(','));
-          });
-        }
-
-        const csvContent = csvData.join('\\n');
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      };
-      
-      function simulateDataUpdate() {
-        const timestamp = new Date();
-        
-        // Store historical data
-        Object.keys(sensorData).forEach(sensor => {
-          if (!historicalData[sensor]) historicalData[sensor] = [];
-          historicalData[sensor].push({
-            timestamp,
-            value: sensorData[sensor]
-          });
-          // Keep only last 100 data points
-          if (historicalData[sensor].length > 100) {
-            historicalData[sensor] = historicalData[sensor].slice(-100);
-          }
+          grid.appendChild(card);
         });
-        
-        sensorData = {
-          temperature: Math.max(18, Math.min(28, sensorData.temperature + (Math.random() - 0.5) * 0.5)),
-          humidity: Math.max(50, Math.min(80, sensorData.humidity + (Math.random() - 0.5) * 2)),
-          electricConductivity: Math.max(800, Math.min(1600, sensorData.electricConductivity + (Math.random() - 0.5) * 50)),
-          waterLevel: Math.max(20, Math.min(100, sensorData.waterLevel + (Math.random() - 0.5) * 3)),
-          pH: Math.max(5.5, Math.min(7.5, sensorData.pH + (Math.random() - 0.5) * 0.1)),
-          lightIntensity: Math.max(40, Math.min(100, sensorData.lightIntensity + (Math.random() - 0.5) * 5)),
-          nutrientLevel: Math.max(50, Math.min(100, sensorData.nutrientLevel + (Math.random() - 0.5) * 2)),
-          airTemperature: Math.max(20, Math.min(30, sensorData.airTemperature + (Math.random() - 0.5) * 0.3))
-        };
-        
-        // Only update dashboard if we're on the dashboard tab
-        if (activeTab === 'dashboard') {
-          updateDashboard();
-        }
-        
-        // Always update the time
-        const timeElement = document.getElementById('fallback-time');
-        if (timeElement) {
-          timeElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
-        }
+      } else if (activeTab === 'devices') {
+        main.innerHTML = `
+          <div class="management-content">
+            <div class="form-section">
+              <h3>Device Management</h3>
+              <h4>+ Add Device</h4>
+              <form class="management-form" onsubmit="addDevice(event)">
+                <input type="text" id="device-name" placeholder="Device Name" class="form-input" required>
+                <input type="text" id="device-type" placeholder="Device Type" class="form-input" required>
+                <input type="text" id="device-location" placeholder="Location" class="form-input" required>
+                <button type="submit" class="action-button">Add Device</button>
+              </form>
+            </div>
+            <div class="list-section">
+              <div class="devices-grid" id="devices-list">
+                ${devices.length === 0 ? '<p class="empty-state">No devices added yet. Add your first device above!</p>' : 
+                  devices.map(device => `
+                    <div class="device-card">
+                      <div class="device-header">
+                        <h4>${device.name}</h4>
+                        <span class="status-badge ${device.status}">${device.status}</span>
+                      </div>
+                      <div class="device-info">
+                        <p><strong>Serial:</strong> ${device.serial}</p>
+                        <p><strong>Location:</strong> ${device.location}</p>
+                        <p><strong>Firmware:</strong> ${device.firmware}</p>
+                        <p><strong>Profile:</strong> ${device.profile}</p>
+                        <p><strong>Last Seen:</strong> ${device.lastSeen.toLocaleDateString()}, ${device.lastSeen.toLocaleTimeString()}</p>
+                      </div>
+                      <div class="device-actions">
+                        <button class="action-button small">Configure</button>
+                        <button class="action-button small">Update Firmware</button>
+                      </div>
+                    </div>
+                  `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (activeTab === 'profiles') {
+        main.innerHTML = `
+          <div class="management-content">
+            <div class="form-section">
+              <h3>Create New Profile</h3>
+              <form class="management-form" onsubmit="addProfile(event)">
+                <input type="text" id="profile-name" placeholder="Profile Name" class="form-input" required>
+                <textarea id="profile-description" placeholder="Profile Description" class="form-textarea" rows="3" required></textarea>
+                <textarea id="profile-settings" placeholder="Settings (JSON format)" class="form-textarea" rows="4"></textarea>
+                <button type="submit" class="action-button">Create Profile</button>
+              </form>
+            </div>
+            <div class="list-section">
+              <h3>Profiles (${profiles.length})</h3>
+              <div class="items-grid" id="profiles-list">
+                ${profiles.length === 0 ? '<p class="empty-state">No profiles created yet. Create your first profile above!</p>' : 
+                  profiles.map(profile => `
+                    <div class="item-card">
+                      <h4>${profile.name}</h4>
+                      <p>${profile.description}</p>
+                      ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
+                      <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
+                    </div>
+                  `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
       }
-      
-      // Initial render
+    }
+    
+    // Global functions for forms
+    window.switchTab = function(tab) {
+      activeTab = tab;
       updateHeader();
       updateDashboard();
+    };
+    
+    window.addDevice = function(event) {
+      event.preventDefault();
+      const name = document.getElementById('device-name').value;
+      const type = document.getElementById('device-type').value;
+      const location = document.getElementById('device-location').value;
       
-      // Update every 3 seconds
-      setInterval(simulateDataUpdate, 3000);
+      if (name && type && location) {
+        devices.push({
+          id: Date.now(),
+          name,
+          type,
+          location,
+          serial: `HY-RPI-${String(devices.length + 3).padStart(3, '0')}`,
+          firmware: '1.2.0',
+          profile: 'default',
+          status: 'online',
+          lastSeen: new Date(),
+          createdAt: new Date()
+        });
+        updateDashboard();
+        // Clear form
+        document.getElementById('device-name').value = '';
+        document.getElementById('device-type').value = '';
+        document.getElementById('device-location').value = '';
+      }
+    };
+    
+    window.addProfile = function(event) {
+      event.preventDefault();
+      const name = document.getElementById('profile-name').value;
+      const description = document.getElementById('profile-description').value;
+      const settings = document.getElementById('profile-settings').value;
+      
+      if (name && description) {
+        profiles.push({
+          id: Date.now(),
+          name,
+          description,
+          settings,
+          createdAt: new Date()
+        });
+        updateDashboard();
+        // Clear form
+        document.getElementById('profile-name').value = '';
+        document.getElementById('profile-description').value = '';
+        document.getElementById('profile-settings').value = '';
+      }
+    };
+    
+    window.exportToCSV = function() {
+      const csvData = [];
+      const headers = ['Timestamp', ...Object.keys(sensorData)];
+      csvData.push(headers.join(','));
+
+      // Add current data as sample
+      const currentRow = [new Date().toISOString(), ...Object.values(sensorData)];
+      csvData.push(currentRow.join(','));
+      
+      const csvContent = csvData.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    };
+    
+    function startDataUpdates() {
+      // Update every 10 seconds instead of 3 seconds
+      setInterval(simulateDataUpdate, 10000);
+    }
+    
+    function simulateDataUpdate() {
+      const timestamp = new Date();
+      
+      // Store historical data
+      Object.keys(sensorData).forEach(sensor => {
+        if (!historicalData[sensor]) historicalData[sensor] = [];
+        historicalData[sensor].push({
+          timestamp,
+          value: sensorData[sensor]
+        });
+        // Keep only last 100 data points
+        if (historicalData[sensor].length > 100) {
+          historicalData[sensor] = historicalData[sensor].slice(-100);
+        }
+      });
+      
+      sensorData = {
+        temperature: Math.max(18, Math.min(28, sensorData.temperature + (Math.random() - 0.5) * 0.5)),
+        humidity: Math.max(50, Math.min(80, sensorData.humidity + (Math.random() - 0.5) * 2)),
+        electricConductivity: Math.max(800, Math.min(1600, sensorData.electricConductivity + (Math.random() - 0.5) * 50)),
+        waterLevel: Math.max(20, Math.min(100, sensorData.waterLevel + (Math.random() - 0.5) * 3)),
+        pH: Math.max(5.5, Math.min(7.5, sensorData.pH + (Math.random() - 0.5) * 0.1)),
+        lightIntensity: Math.max(40, Math.min(100, sensorData.lightIntensity + (Math.random() - 0.5) * 5)),
+        nutrientLevel: Math.max(50, Math.min(100, sensorData.nutrientLevel + (Math.random() - 0.5) * 2)),
+        airTemperature: Math.max(20, Math.min(30, sensorData.airTemperature + (Math.random() - 0.5) * 0.3))
+      };
+      
+      // Only update dashboard if we're on the dashboard tab
+      if (activeTab === 'dashboard') {
+        updateDashboard();
+      }
+      
+      // Always update the time
+      const timeElement = document.getElementById('fallback-time');
+      if (timeElement) {
+        timeElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+      }
     }
   </script>
 </body>
