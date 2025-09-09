@@ -42,6 +42,12 @@ body {
   flex-wrap: wrap;
 }
 
+.header-right-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .tab-navigation {
   display: flex;
   gap: 0.5rem;
@@ -69,6 +75,14 @@ body {
 }
 
 .last-update {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+  background: #ecf0f1;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+}
+
+.username-display {
   color: #7f8c8d;
   font-size: 0.9rem;
   background: #ecf0f1;
@@ -417,6 +431,11 @@ body {
   .header-controls {
     flex-direction: column;
     gap: 1rem;
+  }
+  
+  .header-right-info {
+    flex-direction: column;
+    gap: 0.5rem;
   }
   
   .tab-navigation {
