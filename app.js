@@ -1,5 +1,7 @@
 // Hydroponic System Dashboard React Component
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [username, setUsername] = React.useState('');
   const [sensorData, setSensorData] = React.useState({
     temperature: 22.5,
     humidity: 65,
@@ -13,7 +15,32 @@ function App() {
 
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
   const [historicalData, setHistoricalData] = React.useState({});
-  const [devices, setDevices] = React.useState([]);
+  const [devices, setDevices] = React.useState([
+    {
+      id: 1,
+      name: 'Greenhouse Alpha',
+      type: 'Hydroponic Controller',
+      location: 'Sector A',
+      serial: 'HY-RPI-001',
+      firmware: '1.2.3',
+      profile: 'lettuce-optimal',
+      status: 'online',
+      lastSeen: new Date('2025-08-09T09:56:05'),
+      createdAt: new Date('2025-08-01T10:00:00')
+    },
+    {
+      id: 2,
+      name: 'Greenhouse Beta',
+      type: 'Hydroponic Controller',
+      location: 'Sector B',
+      serial: 'HY-RPI-002',
+      firmware: '1.2.1',
+      profile: 'tomato-growth',
+      status: 'offline',
+      lastSeen: new Date('2025-08-09T08:56:05'),
+      createdAt: new Date('2025-08-01T11:00:00')
+    }
+  ]);
   const [profiles, setProfiles] = React.useState([]);
   const [activeTab, setActiveTab] = React.useState('dashboard');
   const [selectedSensor, setSelectedSensor] = React.useState('temperature');
@@ -60,7 +87,7 @@ function App() {
     });
   }, [sensorData]);
 
-  // Simulate real-time sensor data updates
+  // Simulate real-time sensor data updates (reduced frequency)
   React.useEffect(() => {
     const interval = setInterval(() => {
       setSensorData(prev => ({
@@ -74,7 +101,7 @@ function App() {
         airTemperature: Math.max(20, Math.min(30, prev.airTemperature + (Math.random() - 0.5) * 0.3))
       }));
       setLastUpdate(new Date());
-    }, 3000);
+    }, 10000); // Changed from 3000 to 10000 (10 seconds)
 
     return () => clearInterval(interval);
   }, []);
@@ -274,6 +301,38 @@ function App() {
     return sensorTitles[sensorType] || sensorType;
   };
 
+  // Handle login
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const usernameInput = e.target.querySelector('input[type="text"]');
+    setUsername(usernameInput.value || 'admin');
+    setIsLoggedIn(true);
+  };
+
+  // Login screen component
+  if (!isLoggedIn) {
+    return (
+      <div className="login-container">
+        <div className="login-form">
+          <h1>🌱 Hydroponic System Dashboard</h1>
+          <h2>System Login</h2>
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>Username:</label>
+              <input type="text" defaultValue="admin" className="form-input" required />
+            </div>
+            <div className="form-group">
+              <label>Password:</label>
+              <input type="password" defaultValue="admin" className="form-input" required />
+            </div>
+            <button type="submit" className="login-button">Login</button>
+          </form>
+          <p className="login-note">Default: admin / admin</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard">
       <header className="dashboard-header">
@@ -305,8 +364,13 @@ function App() {
               👤 Profiles
             </button>
           </nav>
-          <div className="last-update">
-            Last updated: {lastUpdate.toLocaleTimeString()}
+          <div className="header-right-info">
+            <div className="username-display">
+              {username}
+            </div>
+            <div className="last-update">
+              Last updated: {lastUpdate.toLocaleTimeString()}
+            </div>
           </div>
         </div>
       </header>
@@ -426,7 +490,8 @@ function App() {
         {activeTab === 'devices' && (
           <div className="management-content">
             <div className="form-section">
-              <h3>Add New Device</h3>
+              <h3>Device Management</h3>
+              <h4>+ Add Device</h4>
               <form onSubmit={handleAddDevice} className="management-form">
                 <input
                   type="text"
@@ -453,14 +518,26 @@ function App() {
               </form>
             </div>
             <div className="list-section">
-              <h3>Devices ({devices.length})</h3>
-              <div className="items-grid">
+              <div className="devices-grid">
                 {devices.map(device => (
-                  <div key={device.id} className="item-card">
-                    <h4>{device.name}</h4>
-                    <p><strong>Type:</strong> {device.type}</p>
-                    <p><strong>Location:</strong> {device.location}</p>
-                    <p><small>Added: {device.createdAt.toLocaleDateString()}</small></p>
+                  <div key={device.id} className="device-card">
+                    <div className="device-header">
+                      <h4>{device.name}</h4>
+                      <span className={`status-badge ${device.status}`}>
+                        {device.status}
+                      </span>
+                    </div>
+                    <div className="device-info">
+                      <p><strong>Serial:</strong> {device.serial}</p>
+                      <p><strong>Location:</strong> {device.location}</p>
+                      <p><strong>Firmware:</strong> {device.firmware}</p>
+                      <p><strong>Profile:</strong> {device.profile}</p>
+                      <p><strong>Last Seen:</strong> {device.lastSeen.toLocaleDateString()}, {device.lastSeen.toLocaleTimeString()}</p>
+                    </div>
+                    <div className="device-actions">
+                      <button className="action-button small">Configure</button>
+                      <button className="action-button small">Update Firmware</button>
+                    </div>
                   </div>
                 ))}
                 {devices.length === 0 && (
