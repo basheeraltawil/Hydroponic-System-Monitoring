@@ -104,16 +104,32 @@
     }
     
     // Fallback sensor data
-    let sensorData = {
-      temperature: 22.5,
-      humidity: 65,
-      electricConductivity: 1200,
-      waterLevel: 85,
-      pH: 6.2,
-      lightIntensity: 75,
-      nutrientLevel: 90,
-      airTemperature: 24.1
+    // Device-specific sensor data for fallback
+    let deviceSensorData = {
+      1: { // Greenhouse Alpha - lettuce optimal profile
+        temperature: 22.5,
+        humidity: 65,
+        electricConductivity: 1200,
+        waterLevel: 85,
+        pH: 6.2,
+        lightIntensity: 75,
+        nutrientLevel: 90,
+        airTemperature: 24.1
+      },
+      2: { // Greenhouse Beta - tomato growth profile  
+        temperature: 24.0,
+        humidity: 70,
+        electricConductivity: 1350,
+        waterLevel: 78,
+        pH: 6.5,
+        lightIntensity: 82,
+        nutrientLevel: 85,
+        airTemperature: 25.5
+      }
     };
+    
+    let selectedDevice = 1;
+    let sensorData = deviceSensorData[selectedDevice];
     
     // Store historical data
     let historicalData = {};
@@ -218,9 +234,33 @@
         main.innerHTML = `
           <div class="dashboard-content">
             <div class="dashboard-actions">
+              <div class="device-selector">
+                <label>Device:</label>
+                <select id="device-select" class="control-select" onchange="selectDevice(this.value)">
+                  ${devices.map(device => `
+                    <option value="${device.id}" ${device.id === selectedDevice ? 'selected' : ''}>
+                      ${device.name} (${device.location})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
               <button class="action-button export-btn" onclick="exportToCSV()">
                 💾 Export CSV
               </button>
+            </div>
+            <div class="device-status">
+              ${(() => {
+                const device = devices.find(d => d.id === selectedDevice);
+                return device ? `
+                  <div class="device-info-bar">
+                    <span class="device-name">📡 ${device.name}</span>
+                    <span class="device-status-indicator ${device.status}">
+                      ${device.status === 'online' ? '🟢 Online' : '🔴 Offline'}
+                    </span>
+                    <span class="device-location">📍 ${device.location}</span>
+                  </div>
+                ` : '';
+              })()}
             </div>
             <div class="sensors-grid" id="fallback-grid"></div>
           </div>
@@ -328,6 +368,12 @@
       updateDashboard();
     };
     
+    window.selectDevice = function(deviceId) {
+      selectedDevice = parseInt(deviceId);
+      sensorData = deviceSensorData[selectedDevice] || deviceSensorData[1];
+      updateDashboard();
+    };
+    
     window.addDevice = function(event) {
       event.preventDefault();
       const name = document.getElementById('device-name').value;
@@ -335,18 +381,32 @@
       const location = document.getElementById('device-location').value;
       
       if (name && type && location) {
+        const newDeviceId = Date.now();
         devices.push({
-          id: Date.now(),
+          id: newDeviceId,
           name,
           type,
           location,
-          serial: `HY-RPI-${String(devices.length + 3).padStart(3, '0')}`,
+          serial: `HY-RPI-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
           firmware: '1.2.0',
           profile: 'default',
           status: 'online',
           lastSeen: new Date(),
           createdAt: new Date()
         });
+        
+        // Add sensor data for new device with default values
+        deviceSensorData[newDeviceId] = {
+          temperature: 22.0 + Math.random() * 2,
+          humidity: 60 + Math.random() * 10,
+          electricConductivity: 1100 + Math.random() * 200,
+          waterLevel: 80 + Math.random() * 10,
+          pH: 6.0 + Math.random() * 0.8,
+          lightIntensity: 70 + Math.random() * 15,
+          nutrientLevel: 85 + Math.random() * 10,
+          airTemperature: 23.0 + Math.random() * 2
+        };
+        
         updateDashboard();
         // Clear form
         document.getElementById('device-name').value = '';
@@ -404,7 +464,7 @@
     function simulateDataUpdate() {
       const timestamp = new Date();
       
-      // Store historical data
+      // Store historical data for current device
       Object.keys(sensorData).forEach(sensor => {
         if (!historicalData[sensor]) historicalData[sensor] = [];
         historicalData[sensor].push({
@@ -417,16 +477,23 @@
         }
       });
       
-      sensorData = {
-        temperature: Math.max(18, Math.min(28, sensorData.temperature + (Math.random() - 0.5) * 0.5)),
-        humidity: Math.max(50, Math.min(80, sensorData.humidity + (Math.random() - 0.5) * 2)),
-        electricConductivity: Math.max(800, Math.min(1600, sensorData.electricConductivity + (Math.random() - 0.5) * 50)),
-        waterLevel: Math.max(20, Math.min(100, sensorData.waterLevel + (Math.random() - 0.5) * 3)),
-        pH: Math.max(5.5, Math.min(7.5, sensorData.pH + (Math.random() - 0.5) * 0.1)),
-        lightIntensity: Math.max(40, Math.min(100, sensorData.lightIntensity + (Math.random() - 0.5) * 5)),
-        nutrientLevel: Math.max(50, Math.min(100, sensorData.nutrientLevel + (Math.random() - 0.5) * 2)),
-        airTemperature: Math.max(20, Math.min(30, sensorData.airTemperature + (Math.random() - 0.5) * 0.3))
-      };
+      // Update each device's sensor data
+      Object.keys(deviceSensorData).forEach(deviceId => {
+        const deviceData = deviceSensorData[deviceId];
+        deviceSensorData[deviceId] = {
+          temperature: Math.max(18, Math.min(28, deviceData.temperature + (Math.random() - 0.5) * 0.5)),
+          humidity: Math.max(50, Math.min(80, deviceData.humidity + (Math.random() - 0.5) * 2)),
+          electricConductivity: Math.max(800, Math.min(1600, deviceData.electricConductivity + (Math.random() - 0.5) * 50)),
+          waterLevel: Math.max(20, Math.min(100, deviceData.waterLevel + (Math.random() - 0.5) * 3)),
+          pH: Math.max(5.5, Math.min(7.5, deviceData.pH + (Math.random() - 0.5) * 0.1)),
+          lightIntensity: Math.max(40, Math.min(100, deviceData.lightIntensity + (Math.random() - 0.5) * 5)),
+          nutrientLevel: Math.max(50, Math.min(100, deviceData.nutrientLevel + (Math.random() - 0.5) * 2)),
+          airTemperature: Math.max(20, Math.min(30, deviceData.airTemperature + (Math.random() - 0.5) * 0.3))
+        };
+      });
+      
+      // Update current sensor data reference
+      sensorData = deviceSensorData[selectedDevice] || deviceSensorData[1];
       
       // Only update dashboard if we're on the dashboard tab
       if (activeTab === 'dashboard') {

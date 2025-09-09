@@ -2,17 +2,31 @@
 function App() {
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
   const [username, setUsername] = React.useState('');
-  const [sensorData, setSensorData] = React.useState({
-    temperature: 22.5,
-    humidity: 65,
-    electricConductivity: 1200,
-    waterLevel: 85,
-    pH: 6.2,
-    lightIntensity: 75,
-    nutrientLevel: 90,
-    airTemperature: 24.1
+  // Device-specific sensor data
+  const [deviceSensorData, setDeviceSensorData] = React.useState({
+    1: { // Greenhouse Alpha - lettuce optimal profile
+      temperature: 22.5,
+      humidity: 65,
+      electricConductivity: 1200,
+      waterLevel: 85,
+      pH: 6.2,
+      lightIntensity: 75,
+      nutrientLevel: 90,
+      airTemperature: 24.1
+    },
+    2: { // Greenhouse Beta - tomato growth profile  
+      temperature: 24.0,
+      humidity: 70,
+      electricConductivity: 1350,
+      waterLevel: 78,
+      pH: 6.5,
+      lightIntensity: 82,
+      nutrientLevel: 85,
+      airTemperature: 25.5
+    }
   });
 
+  const [selectedDevice, setSelectedDevice] = React.useState(1);
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
   const [historicalData, setHistoricalData] = React.useState({});
   const [devices, setDevices] = React.useState([
@@ -59,10 +73,13 @@ function App() {
     settings: ''
   });
 
+  // Get current device's sensor data
+  const currentSensorData = deviceSensorData[selectedDevice] || deviceSensorData[1];
+
   // Initialize historical data storage
   React.useEffect(() => {
     const initialData = {};
-    Object.keys(sensorData).forEach(sensor => {
+    Object.keys(currentSensorData).forEach(sensor => {
       initialData[sensor] = [];
     });
     setHistoricalData(initialData);
@@ -73,11 +90,11 @@ function App() {
     const timestamp = new Date();
     setHistoricalData(prev => {
       const newData = { ...prev };
-      Object.keys(sensorData).forEach(sensor => {
+      Object.keys(currentSensorData).forEach(sensor => {
         if (!newData[sensor]) newData[sensor] = [];
         newData[sensor].push({
           timestamp,
-          value: sensorData[sensor]
+          value: currentSensorData[sensor]
         });
         // Keep only last 24 hours of data
         const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
@@ -85,21 +102,29 @@ function App() {
       });
       return newData;
     });
-  }, [sensorData]);
+  }, [currentSensorData, selectedDevice]);
 
   // Simulate real-time sensor data updates (reduced frequency)
   React.useEffect(() => {
     const interval = setInterval(() => {
-      setSensorData(prev => ({
-        temperature: Math.max(18, Math.min(28, prev.temperature + (Math.random() - 0.5) * 0.5)),
-        humidity: Math.max(50, Math.min(80, prev.humidity + (Math.random() - 0.5) * 2)),
-        electricConductivity: Math.max(800, Math.min(1600, prev.electricConductivity + (Math.random() - 0.5) * 50)),
-        waterLevel: Math.max(20, Math.min(100, prev.waterLevel + (Math.random() - 0.5) * 3)),
-        pH: Math.max(5.5, Math.min(7.5, prev.pH + (Math.random() - 0.5) * 0.1)),
-        lightIntensity: Math.max(40, Math.min(100, prev.lightIntensity + (Math.random() - 0.5) * 5)),
-        nutrientLevel: Math.max(50, Math.min(100, prev.nutrientLevel + (Math.random() - 0.5) * 2)),
-        airTemperature: Math.max(20, Math.min(30, prev.airTemperature + (Math.random() - 0.5) * 0.3))
-      }));
+      setDeviceSensorData(prev => {
+        const updated = { ...prev };
+        // Update each device's sensor data
+        Object.keys(updated).forEach(deviceId => {
+          const deviceData = updated[deviceId];
+          updated[deviceId] = {
+            temperature: Math.max(18, Math.min(28, deviceData.temperature + (Math.random() - 0.5) * 0.5)),
+            humidity: Math.max(50, Math.min(80, deviceData.humidity + (Math.random() - 0.5) * 2)),
+            electricConductivity: Math.max(800, Math.min(1600, deviceData.electricConductivity + (Math.random() - 0.5) * 50)),
+            waterLevel: Math.max(20, Math.min(100, deviceData.waterLevel + (Math.random() - 0.5) * 3)),
+            pH: Math.max(5.5, Math.min(7.5, deviceData.pH + (Math.random() - 0.5) * 0.1)),
+            lightIntensity: Math.max(40, Math.min(100, deviceData.lightIntensity + (Math.random() - 0.5) * 5)),
+            nutrientLevel: Math.max(50, Math.min(100, deviceData.nutrientLevel + (Math.random() - 0.5) * 2)),
+            airTemperature: Math.max(20, Math.min(30, deviceData.airTemperature + (Math.random() - 0.5) * 0.3))
+          };
+        });
+        return updated;
+      });
       setLastUpdate(new Date());
     }, 10000); // Changed from 3000 to 10000 (10 seconds)
 
@@ -129,11 +154,33 @@ function App() {
   const handleAddDevice = (e) => {
     e.preventDefault();
     if (deviceForm.name && deviceForm.type && deviceForm.location) {
+      const newDeviceId = Date.now();
       setDevices(prev => [...prev, {
-        id: Date.now(),
+        id: newDeviceId,
         ...deviceForm,
+        serial: `HY-RPI-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
+        firmware: '1.2.0',
+        profile: 'default',
+        status: 'online',
+        lastSeen: new Date(),
         createdAt: new Date()
       }]);
+      
+      // Add sensor data for new device with default values
+      setDeviceSensorData(prev => ({
+        ...prev,
+        [newDeviceId]: {
+          temperature: 22.0 + Math.random() * 2,
+          humidity: 60 + Math.random() * 10,
+          electricConductivity: 1100 + Math.random() * 200,
+          waterLevel: 80 + Math.random() * 10,
+          pH: 6.0 + Math.random() * 0.8,
+          lightIntensity: 70 + Math.random() * 15,
+          nutrientLevel: 85 + Math.random() * 10,
+          airTemperature: 23.0 + Math.random() * 2
+        }
+      }));
+      
       setDeviceForm({ name: '', type: '', location: '' });
     }
   };
@@ -153,8 +200,9 @@ function App() {
 
   // CSV Export functionality
   const exportToCSV = () => {
+    const selectedDeviceName = devices.find(d => d.id === selectedDevice)?.name || 'Unknown';
     const csvData = [];
-    const headers = ['Timestamp', ...Object.keys(sensorData)];
+    const headers = ['Timestamp', ...Object.keys(currentSensorData)];
     csvData.push(headers.join(','));
 
     // Get the maximum length of historical data
@@ -165,7 +213,7 @@ function App() {
       const timestamp = historicalData.temperature?.[i]?.timestamp;
       row.push(timestamp ? timestamp.toISOString() : '');
       
-      Object.keys(sensorData).forEach(sensor => {
+      Object.keys(currentSensorData).forEach(sensor => {
         const value = historicalData[sensor]?.[i]?.value;
         row.push(value !== undefined ? value : '');
       });
@@ -178,7 +226,7 @@ function App() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `hydroponic-data-${selectedDeviceName}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -379,63 +427,91 @@ function App() {
         {activeTab === 'dashboard' && (
           <div className="dashboard-content">
             <div className="dashboard-actions">
+              <div className="device-selector">
+                <label>Device:</label>
+                <select 
+                  value={selectedDevice} 
+                  onChange={(e) => setSelectedDevice(parseInt(e.target.value))}
+                  className="control-select"
+                >
+                  {devices.map(device => (
+                    <option key={device.id} value={device.id}>
+                      {device.name} ({device.location})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button className="action-button export-btn" onClick={exportToCSV}>
                 💾 Export CSV
               </button>
             </div>
+            <div className="device-status">
+              {(() => {
+                const device = devices.find(d => d.id === selectedDevice);
+                return device ? (
+                  <div className="device-info-bar">
+                    <span className="device-name">📡 {device.name}</span>
+                    <span className={`device-status-indicator ${device.status}`}>
+                      {device.status === 'online' ? '🟢 Online' : '🔴 Offline'}
+                    </span>
+                    <span className="device-location">📍 {device.location}</span>
+                  </div>
+                ) : null;
+              })()}
+            </div>
             <div className="sensors-grid">
               <SensorCard 
                 title="Water Temperature" 
-                value={sensorData.temperature} 
+                value={currentSensorData.temperature} 
                 unit="°C" 
                 icon="🌡️" 
                 sensorType="temperature"
               />
               <SensorCard 
                 title="Humidity" 
-                value={sensorData.humidity} 
+                value={currentSensorData.humidity} 
                 unit="%" 
                 icon="💧" 
                 sensorType="humidity"
               />
               <SensorCard 
                 title="Electric Conductivity" 
-                value={sensorData.electricConductivity} 
+                value={currentSensorData.electricConductivity} 
                 unit="μS/cm" 
                 icon="⚡" 
                 sensorType="electricConductivity"
               />
               <SensorCard 
                 title="Water Level" 
-                value={sensorData.waterLevel} 
+                value={currentSensorData.waterLevel} 
                 unit="%" 
                 icon="🌊" 
                 sensorType="waterLevel"
               />
               <SensorCard 
                 title="pH Level" 
-                value={sensorData.pH} 
+                value={currentSensorData.pH} 
                 unit="" 
                 icon="🧪" 
                 sensorType="pH"
               />
               <SensorCard 
                 title="Light Intensity" 
-                value={sensorData.lightIntensity} 
+                value={currentSensorData.lightIntensity} 
                 unit="%" 
                 icon="☀️" 
                 sensorType="lightIntensity"
               />
               <SensorCard 
                 title="Nutrient Level" 
-                value={sensorData.nutrientLevel} 
+                value={currentSensorData.nutrientLevel} 
                 unit="%" 
                 icon="🥬" 
                 sensorType="nutrientLevel"
               />
               <SensorCard 
                 title="Air Temperature" 
-                value={sensorData.airTemperature} 
+                value={currentSensorData.airTemperature} 
                 unit="°C" 
                 icon="🌡️" 
                 sensorType="airTemperature"
@@ -447,6 +523,20 @@ function App() {
         {activeTab === 'charts' && (
           <div className="charts-content">
             <div className="chart-controls">
+              <div className="control-group">
+                <label>Device:</label>
+                <select 
+                  value={selectedDevice} 
+                  onChange={(e) => setSelectedDevice(parseInt(e.target.value))}
+                  className="control-select"
+                >
+                  {devices.map(device => (
+                    <option key={device.id} value={device.id}>
+                      {device.name} ({device.location})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="control-group">
                 <label>Sensor:</label>
                 <select 
@@ -481,7 +571,7 @@ function App() {
               </button>
             </div>
             <div className="chart-container">
-              <h3>{getSensorTitle(selectedSensor)} - {selectedPeriod}</h3>
+              <h3>{getSensorTitle(selectedSensor)} - {selectedPeriod} | {devices.find(d => d.id === selectedDevice)?.name}</h3>
               <ChartComponent />
             </div>
           </div>
