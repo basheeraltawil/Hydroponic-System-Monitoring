@@ -152,6 +152,81 @@ body {
   color: #7f8c8d;
 }
 
+/* Charts Styles */
+.charts-content {
+  padding: 1.5rem;
+}
+
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-group label {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.chart-container {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.chart-placeholder {
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+.chart-info {
+  text-align: center;
+  color: #6c757d;
+}
+
+.chart-info p {
+  margin-bottom: 1rem;
+}
+
+.current-readings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.reading-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+}
+
+.reading-label {
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.reading-value {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
 .action-button {
   background: #27ae60;
   color: white;

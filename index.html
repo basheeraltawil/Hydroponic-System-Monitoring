@@ -66,6 +66,7 @@
             <div class="header-controls">
               <nav class="tab-navigation">
                 <button class="tab-button active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+                <button class="tab-button" onclick="switchTab('charts')">📈 Charts</button>
                 <button class="tab-button" onclick="switchTab('devices')">🔧 Devices</button>
                 <button class="tab-button" onclick="switchTab('profiles')">👤 Profiles</button>
               </nav>
@@ -291,6 +292,65 @@
           `;
           grid.appendChild(card);
         });
+      } else if (activeTab === 'charts') {
+        main.innerHTML = `
+          <div class="charts-content">
+            <div class="chart-controls">
+              <div class="control-group">
+                <label>Device:</label>
+                <select id="device-select-charts" class="control-select" onchange="selectDevice(this.value)">
+                  ${devices.map(device => `
+                    <option value="${device.id}" ${device.id === selectedDevice ? 'selected' : ''}>
+                      ${device.name} (${device.location})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="control-group">
+                <label>Sensor:</label>
+                <select id="sensor-select" class="control-select">
+                  <option value="temperature">Water Temperature</option>
+                  <option value="humidity">Humidity</option>
+                  <option value="electricConductivity">Electric Conductivity</option>
+                  <option value="waterLevel">Water Level</option>
+                  <option value="pH">pH Level</option>
+                  <option value="lightIntensity">Light Intensity</option>
+                  <option value="nutrientLevel">Nutrient Level</option>
+                  <option value="airTemperature">Air Temperature</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label>Period:</label>
+                <select id="period-select" class="control-select">
+                  <option value="1h">Last Hour</option>
+                  <option value="6h">Last 6 Hours</option>
+                  <option value="24h">Last 24 Hours</option>
+                </select>
+              </div>
+              <button class="action-button export-btn" onclick="exportToCSV()">
+                💾 Export CSV
+              </button>
+            </div>
+            <div class="chart-container">
+              <h3>Sensor Chart - ${devices.find(d => d.id === selectedDevice)?.name || 'Unknown Device'}</h3>
+              <div class="chart-placeholder">
+                <div class="chart-info">
+                  <p>📊 Real-time sensor data visualization would appear here</p>
+                  <p>Selected Device: <strong>${devices.find(d => d.id === selectedDevice)?.name || 'Unknown'}</strong></p>
+                  <p>Current sensor readings for this device:</p>
+                  <div class="current-readings">
+                    ${Object.entries(sensorData).map(([key, value]) => `
+                      <div class="reading-item">
+                        <span class="reading-label">${key}:</span>
+                        <span class="reading-value">${typeof value === 'number' ? value.toFixed(1) : value}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
       } else if (activeTab === 'devices') {
         main.innerHTML = `
           <div class="management-content">
