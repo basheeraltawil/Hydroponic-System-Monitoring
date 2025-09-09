@@ -9,6 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+  <!-- Load Chart.js for data visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -60,6 +62,17 @@
         airTemperature: 24.1
       };
       
+      // Store historical data
+      let historicalData = {};
+      Object.keys(sensorData).forEach(key => {
+        historicalData[key] = [];
+      });
+      
+      // Store devices and profiles
+      let devices = [];
+      let profiles = [];
+      let activeTab = 'dashboard';
+      
       const sensors = [
         { key: 'temperature', title: 'Water Temperature', unit: '°C', icon: '🌡️' },
         { key: 'humidity', title: 'Humidity', unit: '%', icon: '💧' },
@@ -89,38 +102,226 @@
         return 'critical';
       }
       
+      function updateHeader() {
+        const header = document.querySelector('.dashboard-header');
+        header.innerHTML = `
+          <h1>🌱 Hydroponic System Dashboard</h1>
+          <div class="header-controls">
+            <nav class="tab-navigation">
+              <button class="tab-button ${activeTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">
+                📊 Dashboard
+              </button>
+              <button class="tab-button ${activeTab === 'devices' ? 'active' : ''}" onclick="switchTab('devices')">
+                🔧 Devices
+              </button>
+              <button class="tab-button ${activeTab === 'profiles' ? 'active' : ''}" onclick="switchTab('profiles')">
+                👤 Profiles
+              </button>
+            </nav>
+            <div class="last-update" id="fallback-time">
+              Last updated: ${new Date().toLocaleTimeString()}
+            </div>
+          </div>
+        `;
+      }
+      
       function updateDashboard() {
-        const grid = document.getElementById('fallback-grid');
-        grid.innerHTML = '';
+        const main = document.querySelector('.dashboard-main');
         
-        sensors.forEach(sensor => {
-          const value = sensorData[sensor.key];
-          const status = getStatusColor(sensor.key, value);
-          const displayValue = typeof value === 'number' ? value.toFixed(1) : value;
-          const statusText = status === 'optimal' ? '✓ Good' : status === 'warning' ? '⚠ Warning' : '⚡ Critical';
-          
-          const card = document.createElement('div');
-          card.className = `sensor-card ${status}`;
-          card.innerHTML = `
-            <div class="sensor-icon">${sensor.icon}</div>
-            <div class="sensor-info">
-              <h3>${sensor.title}</h3>
-              <div class="sensor-value">
-                ${displayValue}<span class="unit">${sensor.unit}</span>
+        if (activeTab === 'dashboard') {
+          main.innerHTML = `
+            <div class="dashboard-content">
+              <div class="dashboard-actions">
+                <button class="action-button export-btn" onclick="exportToCSV()">
+                  💾 Export CSV
+                </button>
               </div>
-              <div class="status-indicator ${status}">
-                ${statusText}
+              <div class="sensors-grid" id="fallback-grid"></div>
+            </div>
+          `;
+          
+          const grid = document.getElementById('fallback-grid');
+          grid.innerHTML = '';
+          
+          sensors.forEach(sensor => {
+            const value = sensorData[sensor.key];
+            const status = getStatusColor(sensor.key, value);
+            const displayValue = typeof value === 'number' ? value.toFixed(1) : value;
+            const statusText = status === 'optimal' ? '✓ Good' : status === 'warning' ? '⚠ Warning' : '⚡ Critical';
+            
+            const card = document.createElement('div');
+            card.className = `sensor-card ${status}`;
+            card.innerHTML = `
+              <div class="sensor-icon">${sensor.icon}</div>
+              <div class="sensor-info">
+                <h3>${sensor.title}</h3>
+                <div class="sensor-value">
+                  ${displayValue}<span class="unit">${sensor.unit}</span>
+                </div>
+                <div class="status-indicator ${status}">
+                  ${statusText}
+                </div>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+        } else if (activeTab === 'devices') {
+          main.innerHTML = `
+            <div class="management-content">
+              <div class="form-section">
+                <h3>Add New Device</h3>
+                <form class="management-form" onsubmit="addDevice(event)">
+                  <input type="text" id="device-name" placeholder="Device Name" class="form-input" required>
+                  <input type="text" id="device-type" placeholder="Device Type" class="form-input" required>
+                  <input type="text" id="device-location" placeholder="Location" class="form-input" required>
+                  <button type="submit" class="action-button">Add Device</button>
+                </form>
+              </div>
+              <div class="list-section">
+                <h3>Devices (${devices.length})</h3>
+                <div class="items-grid" id="devices-list">
+                  ${devices.length === 0 ? '<p class="empty-state">No devices added yet. Add your first device above!</p>' : 
+                    devices.map(device => `
+                      <div class="item-card">
+                        <h4>${device.name}</h4>
+                        <p><strong>Type:</strong> ${device.type}</p>
+                        <p><strong>Location:</strong> ${device.location}</p>
+                        <p><small>Added: ${device.createdAt.toLocaleDateString()}</small></p>
+                      </div>
+                    `).join('')}
+                </div>
               </div>
             </div>
           `;
-          grid.appendChild(card);
-        });
-        
-        document.getElementById('fallback-time').textContent = 
-          `Last updated: ${new Date().toLocaleTimeString()}`;
+        } else if (activeTab === 'profiles') {
+          main.innerHTML = `
+            <div class="management-content">
+              <div class="form-section">
+                <h3>Create New Profile</h3>
+                <form class="management-form" onsubmit="addProfile(event)">
+                  <input type="text" id="profile-name" placeholder="Profile Name" class="form-input" required>
+                  <textarea id="profile-description" placeholder="Profile Description" class="form-textarea" rows="3" required></textarea>
+                  <textarea id="profile-settings" placeholder="Settings (JSON format)" class="form-textarea" rows="4"></textarea>
+                  <button type="submit" class="action-button">Create Profile</button>
+                </form>
+              </div>
+              <div class="list-section">
+                <h3>Profiles (${profiles.length})</h3>
+                <div class="items-grid" id="profiles-list">
+                  ${profiles.length === 0 ? '<p class="empty-state">No profiles created yet. Create your first profile above!</p>' : 
+                    profiles.map(profile => `
+                      <div class="item-card">
+                        <h4>${profile.name}</h4>
+                        <p>${profile.description}</p>
+                        ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
+                        <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
+                      </div>
+                    `).join('')}
+                </div>
+              </div>
+            </div>
+          `;
+        }
       }
       
+      // Global functions for forms
+      window.switchTab = function(tab) {
+        activeTab = tab;
+        updateHeader();
+        updateDashboard();
+      };
+      
+      window.addDevice = function(event) {
+        event.preventDefault();
+        const name = document.getElementById('device-name').value;
+        const type = document.getElementById('device-type').value;
+        const location = document.getElementById('device-location').value;
+        
+        if (name && type && location) {
+          devices.push({
+            id: Date.now(),
+            name,
+            type,
+            location,
+            createdAt: new Date()
+          });
+          updateDashboard();
+          // Clear form
+          document.getElementById('device-name').value = '';
+          document.getElementById('device-type').value = '';
+          document.getElementById('device-location').value = '';
+        }
+      };
+      
+      window.addProfile = function(event) {
+        event.preventDefault();
+        const name = document.getElementById('profile-name').value;
+        const description = document.getElementById('profile-description').value;
+        const settings = document.getElementById('profile-settings').value;
+        
+        if (name && description) {
+          profiles.push({
+            id: Date.now(),
+            name,
+            description,
+            settings,
+            createdAt: new Date()
+          });
+          updateDashboard();
+          // Clear form
+          document.getElementById('profile-name').value = '';
+          document.getElementById('profile-description').value = '';
+          document.getElementById('profile-settings').value = '';
+        }
+      };
+      
+      window.exportToCSV = function() {
+        const csvData = [];
+        const headers = ['Timestamp', ...Object.keys(sensorData)];
+        csvData.push(headers.join(','));
+
+        // Add current data as sample
+        const currentRow = [new Date().toISOString(), ...Object.values(sensorData)];
+        csvData.push(currentRow.join(','));
+        
+        // Add historical data if available
+        if (historicalData.temperature && historicalData.temperature.length > 0) {
+          historicalData.temperature.forEach((point, index) => {
+            const row = [point.timestamp.toISOString()];
+            Object.keys(sensorData).forEach(sensor => {
+              const value = historicalData[sensor]?.[index]?.value || '';
+              row.push(value);
+            });
+            csvData.push(row.join(','));
+          });
+        }
+
+        const csvContent = csvData.join('\\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      };
+      
       function simulateDataUpdate() {
+        const timestamp = new Date();
+        
+        // Store historical data
+        Object.keys(sensorData).forEach(sensor => {
+          if (!historicalData[sensor]) historicalData[sensor] = [];
+          historicalData[sensor].push({
+            timestamp,
+            value: sensorData[sensor]
+          });
+          // Keep only last 100 data points
+          if (historicalData[sensor].length > 100) {
+            historicalData[sensor] = historicalData[sensor].slice(-100);
+          }
+        });
+        
         sensorData = {
           temperature: Math.max(18, Math.min(28, sensorData.temperature + (Math.random() - 0.5) * 0.5)),
           humidity: Math.max(50, Math.min(80, sensorData.humidity + (Math.random() - 0.5) * 2)),
@@ -131,10 +332,21 @@
           nutrientLevel: Math.max(50, Math.min(100, sensorData.nutrientLevel + (Math.random() - 0.5) * 2)),
           airTemperature: Math.max(20, Math.min(30, sensorData.airTemperature + (Math.random() - 0.5) * 0.3))
         };
-        updateDashboard();
+        
+        // Only update dashboard if we're on the dashboard tab
+        if (activeTab === 'dashboard') {
+          updateDashboard();
+        }
+        
+        // Always update the time
+        const timeElement = document.getElementById('fallback-time');
+        if (timeElement) {
+          timeElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+        }
       }
       
       // Initial render
+      updateHeader();
       updateDashboard();
       
       // Update every 3 seconds
