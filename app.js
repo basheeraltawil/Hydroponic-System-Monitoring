@@ -45,6 +45,7 @@ function App() {
   const [activeTab, setActiveTab] = React.useState('dashboard');
   const [selectedSensor, setSelectedSensor] = React.useState('temperature');
   const [selectedPeriod, setSelectedPeriod] = React.useState('1h');
+  const [selectedDevice, setSelectedDevice] = React.useState(1); // Default to first device
   
   // Form states - separate from sensor data to prevent clearing
   const [deviceForm, setDeviceForm] = React.useState({
@@ -301,12 +302,24 @@ function App() {
     return sensorTitles[sensorType] || sensorType;
   };
 
+  // Get selected device info
+  const getSelectedDevice = () => {
+    return devices.find(device => device.id === selectedDevice) || devices[0];
+  };
+
   // Handle login
   const handleLogin = (e) => {
     e.preventDefault();
     const usernameInput = e.target.querySelector('input[type="text"]');
     setUsername(usernameInput.value || 'admin');
     setIsLoggedIn(true);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUsername('');
+    setActiveTab('dashboard');
   };
 
   // Login screen component
@@ -368,6 +381,9 @@ function App() {
             <div className="username-display">
               {username}
             </div>
+            <button className="logout-button" onClick={handleLogout}>
+              🚪 Logout
+            </button>
             <div className="last-update">
               Last updated: {lastUpdate.toLocaleTimeString()}
             </div>
@@ -379,9 +395,27 @@ function App() {
         {activeTab === 'dashboard' && (
           <div className="dashboard-content">
             <div className="dashboard-actions">
+              <div className="device-selector">
+                <label>Device:</label>
+                <select 
+                  value={selectedDevice} 
+                  onChange={(e) => setSelectedDevice(parseInt(e.target.value))}
+                  className="control-select"
+                >
+                  {devices.map(device => (
+                    <option key={device.id} value={device.id}>
+                      {device.name} ({device.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button className="action-button export-btn" onClick={exportToCSV}>
                 💾 Export CSV
               </button>
+            </div>
+            <div className="selected-device-info">
+              <h3>📍 {getSelectedDevice()?.name || 'No Device Selected'}</h3>
+              <p>Location: {getSelectedDevice()?.location} | Status: <span className={`status-text ${getSelectedDevice()?.status}`}>{getSelectedDevice()?.status}</span></p>
             </div>
             <div className="sensors-grid">
               <SensorCard 
@@ -448,6 +482,20 @@ function App() {
           <div className="charts-content">
             <div className="chart-controls">
               <div className="control-group">
+                <label>Device:</label>
+                <select 
+                  value={selectedDevice} 
+                  onChange={(e) => setSelectedDevice(parseInt(e.target.value))}
+                  className="control-select"
+                >
+                  {devices.map(device => (
+                    <option key={device.id} value={device.id}>
+                      {device.name} ({device.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="control-group">
                 <label>Sensor:</label>
                 <select 
                   value={selectedSensor} 
@@ -481,7 +529,7 @@ function App() {
               </button>
             </div>
             <div className="chart-container">
-              <h3>{getSensorTitle(selectedSensor)} - {selectedPeriod}</h3>
+              <h3>{getSelectedDevice()?.name} - {getSensorTitle(selectedSensor)} - {selectedPeriod}</h3>
               <ChartComponent />
             </div>
           </div>

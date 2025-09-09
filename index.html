@@ -58,6 +58,17 @@
       initMainDashboard();
     }
     
+    window.handleLogout = function() {
+      isLoggedIn = false;
+      currentUsername = '';
+      activeTab = 'dashboard';
+      showLoginScreen();
+    }
+
+    function getSelectedDevice() {
+      return devices.find(device => device.id === selectedDevice) || devices[0];
+    }
+    
     function initMainDashboard() {
       document.getElementById('fallback').innerHTML = `
         <div class="dashboard">
@@ -150,6 +161,7 @@
     ];
     let profiles = [];
     let activeTab = 'dashboard';
+    let selectedDevice = 1; // Default to first device
     
     const sensors = [
       { key: 'temperature', title: 'Water Temperature', unit: '°C', icon: '🌡️' },
@@ -190,6 +202,9 @@
               <button class="tab-button ${activeTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">
                 📊 Dashboard
               </button>
+              <button class="tab-button ${activeTab === 'charts' ? 'active' : ''}" onclick="switchTab('charts')">
+                📈 Charts
+              </button>
               <button class="tab-button ${activeTab === 'devices' ? 'active' : ''}" onclick="switchTab('devices')">
                 🔧 Devices
               </button>
@@ -201,6 +216,9 @@
               <div class="username-display" id="fallback-username">
                 ${currentUsername}
               </div>
+              <button class="logout-button" onclick="handleLogout()">
+                🚪 Logout
+              </button>
               <div class="last-update" id="fallback-time">
                 Last updated: ${new Date().toLocaleTimeString()}
               </div>
@@ -218,9 +236,23 @@
         main.innerHTML = `
           <div class="dashboard-content">
             <div class="dashboard-actions">
+              <div class="device-selector">
+                <label>Device:</label>
+                <select onchange="selectDevice(this.value)" class="control-select">
+                  ${devices.map(device => `
+                    <option value="${device.id}" ${device.id === selectedDevice ? 'selected' : ''}>
+                      ${device.name} (${device.status})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
               <button class="action-button export-btn" onclick="exportToCSV()">
                 💾 Export CSV
               </button>
+            </div>
+            <div class="selected-device-info">
+              <h3>📍 ${getSelectedDevice()?.name || 'No Device Selected'}</h3>
+              <p>Location: ${getSelectedDevice()?.location} | Status: <span class="status-text ${getSelectedDevice()?.status}">${getSelectedDevice()?.status}</span></p>
             </div>
             <div class="sensors-grid" id="fallback-grid"></div>
           </div>
@@ -251,6 +283,55 @@
           `;
           grid.appendChild(card);
         });
+      } else if (activeTab === 'charts') {
+        main.innerHTML = `
+          <div class="charts-content">
+            <div class="chart-controls">
+              <div class="control-group">
+                <label>Device:</label>
+                <select onchange="selectDevice(this.value)" class="control-select">
+                  ${devices.map(device => `
+                    <option value="${device.id}" ${device.id === selectedDevice ? 'selected' : ''}>
+                      ${device.name} (${device.status})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="control-group">
+                <label>Sensor:</label>
+                <select id="sensor-select" class="control-select">
+                  <option value="temperature">Water Temperature</option>
+                  <option value="humidity">Humidity</option>
+                  <option value="electricConductivity">Electric Conductivity</option>
+                  <option value="waterLevel">Water Level</option>
+                  <option value="pH">pH Level</option>
+                  <option value="lightIntensity">Light Intensity</option>
+                  <option value="nutrientLevel">Nutrient Level</option>
+                  <option value="airTemperature">Air Temperature</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label>Period:</label>
+                <select id="period-select" class="control-select">
+                  <option value="1h">Last Hour</option>
+                  <option value="6h">Last 6 Hours</option>
+                  <option value="24h">Last 24 Hours</option>
+                </select>
+              </div>
+              <button class="action-button export-btn" onclick="exportToCSV()">
+                💾 Export CSV
+              </button>
+            </div>
+            <div class="chart-container">
+              <h3>${getSelectedDevice()?.name} - Sensor Data Trends</h3>
+              <div class="chart-placeholder">
+                <p>📈 Charts functionality would display historical sensor data here.</p>
+                <p>For the selected device: <strong>${getSelectedDevice()?.name}</strong></p>
+                <p>This would show real-time charts using Chart.js when integrated with actual sensor data.</p>
+              </div>
+            </div>
+          </div>
+        `;
       } else if (activeTab === 'devices') {
         main.innerHTML = `
           <div class="management-content">
@@ -325,6 +406,11 @@
     window.switchTab = function(tab) {
       activeTab = tab;
       updateHeader();
+      updateDashboard();
+    };
+
+    window.selectDevice = function(deviceId) {
+      selectedDevice = parseInt(deviceId);
       updateDashboard();
     };
     
