@@ -2,16 +2,34 @@
 function App() {
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
   const [username, setUsername] = React.useState('');
-  const [sensorData, setSensorData] = React.useState({
-    temperature: 22.5,
-    humidity: 65,
-    electricConductivity: 1200,
-    waterLevel: 85,
-    pH: 6.2,
-    lightIntensity: 75,
-    nutrientLevel: 90,
-    airTemperature: 24.1
+  // Device-specific sensor data
+  const [deviceSensorData, setDeviceSensorData] = React.useState({
+    1: { // Greenhouse Alpha
+      temperature: 22.5,
+      humidity: 65,
+      electricConductivity: 1200,
+      waterLevel: 85,
+      pH: 6.2,
+      lightIntensity: 75,
+      nutrientLevel: 90,
+      airTemperature: 24.1
+    },
+    2: { // Greenhouse Beta
+      temperature: 20.8,
+      humidity: 58,
+      electricConductivity: 1350,
+      waterLevel: 72,
+      pH: 6.5,
+      lightIntensity: 68,
+      nutrientLevel: 85,
+      airTemperature: 22.9
+    }
   });
+
+  // Get current device sensor data
+  const getCurrentSensorData = () => {
+    return deviceSensorData[selectedDevice] || deviceSensorData[1];
+  };
 
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
   const [historicalData, setHistoricalData] = React.useState({});
@@ -60,47 +78,69 @@ function App() {
     settings: ''
   });
 
-  // Initialize historical data storage
+  // Initialize historical data storage per device
   React.useEffect(() => {
     const initialData = {};
-    Object.keys(sensorData).forEach(sensor => {
-      initialData[sensor] = [];
+    devices.forEach(device => {
+      initialData[device.id] = {};
+      Object.keys(deviceSensorData[device.id] || {}).forEach(sensor => {
+        initialData[device.id][sensor] = [];
+      });
     });
     setHistoricalData(initialData);
-  }, []);
+  }, [devices]);
 
-  // Store historical data when sensor data updates
+  // Store historical data when device sensor data updates
   React.useEffect(() => {
     const timestamp = new Date();
     setHistoricalData(prev => {
       const newData = { ...prev };
-      Object.keys(sensorData).forEach(sensor => {
-        if (!newData[sensor]) newData[sensor] = [];
-        newData[sensor].push({
-          timestamp,
-          value: sensorData[sensor]
+      
+      Object.keys(deviceSensorData).forEach(deviceId => {
+        if (!newData[deviceId]) newData[deviceId] = {};
+        const currentData = deviceSensorData[deviceId];
+        
+        Object.keys(currentData).forEach(sensor => {
+          if (!newData[deviceId][sensor]) newData[deviceId][sensor] = [];
+          newData[deviceId][sensor].push({
+            timestamp,
+            value: currentData[sensor]
+          });
+          // Keep only last 24 hours of data
+          const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
+          newData[deviceId][sensor] = newData[deviceId][sensor].filter(point => point.timestamp > oneDayAgo);
         });
-        // Keep only last 24 hours of data
-        const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
-        newData[sensor] = newData[sensor].filter(point => point.timestamp > oneDayAgo);
       });
+      
       return newData;
     });
-  }, [sensorData]);
+  }, [deviceSensorData]);
 
-  // Simulate real-time sensor data updates (reduced frequency)
+  // Simulate real-time sensor data updates for each device (reduced frequency)
   React.useEffect(() => {
     const interval = setInterval(() => {
-      setSensorData(prev => ({
-        temperature: Math.max(18, Math.min(28, prev.temperature + (Math.random() - 0.5) * 0.5)),
-        humidity: Math.max(50, Math.min(80, prev.humidity + (Math.random() - 0.5) * 2)),
-        electricConductivity: Math.max(800, Math.min(1600, prev.electricConductivity + (Math.random() - 0.5) * 50)),
-        waterLevel: Math.max(20, Math.min(100, prev.waterLevel + (Math.random() - 0.5) * 3)),
-        pH: Math.max(5.5, Math.min(7.5, prev.pH + (Math.random() - 0.5) * 0.1)),
-        lightIntensity: Math.max(40, Math.min(100, prev.lightIntensity + (Math.random() - 0.5) * 5)),
-        nutrientLevel: Math.max(50, Math.min(100, prev.nutrientLevel + (Math.random() - 0.5) * 2)),
-        airTemperature: Math.max(20, Math.min(30, prev.airTemperature + (Math.random() - 0.5) * 0.3))
-      }));
+      setDeviceSensorData(prev => {
+        const newData = { ...prev };
+        
+        Object.keys(newData).forEach(deviceId => {
+          const isFirstDevice = deviceId == 1;
+          const variationMultiplier = isFirstDevice ? 1 : 1.2; // Second device has more variation
+          const data = newData[deviceId];
+          
+          newData[deviceId] = {
+            temperature: Math.max(18, Math.min(28, data.temperature + (Math.random() - 0.5) * 0.5 * variationMultiplier)),
+            humidity: Math.max(50, Math.min(80, data.humidity + (Math.random() - 0.5) * 2 * variationMultiplier)),
+            electricConductivity: Math.max(800, Math.min(1600, data.electricConductivity + (Math.random() - 0.5) * 50 * variationMultiplier)),
+            waterLevel: Math.max(20, Math.min(100, data.waterLevel + (Math.random() - 0.5) * 3 * variationMultiplier)),
+            pH: Math.max(5.5, Math.min(7.5, data.pH + (Math.random() - 0.5) * 0.1 * variationMultiplier)),
+            lightIntensity: Math.max(40, Math.min(100, data.lightIntensity + (Math.random() - 0.5) * 5 * variationMultiplier)),
+            nutrientLevel: Math.max(50, Math.min(100, data.nutrientLevel + (Math.random() - 0.5) * 2 * variationMultiplier)),
+            airTemperature: Math.max(20, Math.min(30, data.airTemperature + (Math.random() - 0.5) * 0.3 * variationMultiplier))
+          };
+        });
+        
+        return newData;
+      });
       setLastUpdate(new Date());
     }, 10000); // Changed from 3000 to 10000 (10 seconds)
 
@@ -155,19 +195,21 @@ function App() {
   // CSV Export functionality
   const exportToCSV = () => {
     const csvData = [];
-    const headers = ['Timestamp', ...Object.keys(sensorData)];
+    const currentData = getCurrentSensorData();
+    const headers = ['Timestamp', ...Object.keys(currentData)];
     csvData.push(headers.join(','));
 
-    // Get the maximum length of historical data
-    const maxLength = Math.max(...Object.values(historicalData).map(data => data.length));
+    // Get the maximum length of historical data for current device
+    const deviceHistoricalData = historicalData[selectedDevice] || {};
+    const maxLength = Math.max(...Object.values(deviceHistoricalData).map(data => data?.length || 0));
     
     for (let i = 0; i < maxLength; i++) {
       const row = [];
-      const timestamp = historicalData.temperature?.[i]?.timestamp;
+      const timestamp = deviceHistoricalData.temperature?.[i]?.timestamp;
       row.push(timestamp ? timestamp.toISOString() : '');
       
-      Object.keys(sensorData).forEach(sensor => {
-        const value = historicalData[sensor]?.[i]?.value;
+      Object.keys(currentData).forEach(sensor => {
+        const value = deviceHistoricalData[sensor]?.[i]?.value;
         row.push(value !== undefined ? value : '');
       });
       
@@ -179,14 +221,15 @@ function App() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `hydroponic-data-${getSelectedDevice()?.name}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  // Get filtered historical data based on selected period
+  // Get filtered historical data based on selected period and device
   const getFilteredData = (sensorType, period) => {
-    const data = historicalData[sensorType] || [];
+    const deviceHistoricalData = historicalData[selectedDevice] || {};
+    const data = deviceHistoricalData[sensorType] || [];
     const now = new Date();
     let cutoff;
     
@@ -283,7 +326,7 @@ function App() {
           chartInstance.current.destroy();
         }
       };
-    }, [selectedSensor, selectedPeriod, historicalData]);
+    }, [selectedSensor, selectedPeriod, selectedDevice, historicalData]);
 
     return <canvas ref={chartRef} style={{ maxHeight: '400px' }}></canvas>;
   };
@@ -420,56 +463,56 @@ function App() {
             <div className="sensors-grid">
               <SensorCard 
                 title="Water Temperature" 
-                value={sensorData.temperature} 
+                value={getCurrentSensorData().temperature} 
                 unit="°C" 
                 icon="🌡️" 
                 sensorType="temperature"
               />
               <SensorCard 
                 title="Humidity" 
-                value={sensorData.humidity} 
+                value={getCurrentSensorData().humidity} 
                 unit="%" 
                 icon="💧" 
                 sensorType="humidity"
               />
               <SensorCard 
                 title="Electric Conductivity" 
-                value={sensorData.electricConductivity} 
+                value={getCurrentSensorData().electricConductivity} 
                 unit="μS/cm" 
                 icon="⚡" 
                 sensorType="electricConductivity"
               />
               <SensorCard 
                 title="Water Level" 
-                value={sensorData.waterLevel} 
+                value={getCurrentSensorData().waterLevel} 
                 unit="%" 
                 icon="🌊" 
                 sensorType="waterLevel"
               />
               <SensorCard 
                 title="pH Level" 
-                value={sensorData.pH} 
+                value={getCurrentSensorData().pH} 
                 unit="" 
                 icon="🧪" 
                 sensorType="pH"
               />
               <SensorCard 
                 title="Light Intensity" 
-                value={sensorData.lightIntensity} 
+                value={getCurrentSensorData().lightIntensity} 
                 unit="%" 
                 icon="☀️" 
                 sensorType="lightIntensity"
               />
               <SensorCard 
                 title="Nutrient Level" 
-                value={sensorData.nutrientLevel} 
+                value={getCurrentSensorData().nutrientLevel} 
                 unit="%" 
                 icon="🥬" 
                 sensorType="nutrientLevel"
               />
               <SensorCard 
                 title="Air Temperature" 
-                value={sensorData.airTemperature} 
+                value={getCurrentSensorData().airTemperature} 
                 unit="°C" 
                 icon="🌡️" 
                 sensorType="airTemperature"
