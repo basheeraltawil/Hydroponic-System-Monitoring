@@ -337,13 +337,25 @@ function App() {
   // Handle device form submission
   const handleAddDevice = (e) => {
     e.preventDefault();
-    if (deviceForm.name && deviceForm.type && deviceForm.location) {
+    
+    try {
+      const name = deviceForm.name?.trim();
+      const type = deviceForm.type?.trim();
+      const location = deviceForm.location?.trim();
+      
+      if (!name || !type || !location) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+      
       const newDeviceId = Date.now();
       
       // Add the new device
       setDevices(prev => [...prev, {
         id: newDeviceId,
-        ...deviceForm,
+        name,
+        type,
+        location,
         serial: `HY-RPI-${String(newDeviceId).slice(-3).padStart(3, '0')}`,
         firmware: '1.2.0',
         profile: 'default',
@@ -368,6 +380,34 @@ function App() {
       }));
       
       setDeviceForm({ name: '', type: '', location: '' });
+      alert('Device added successfully!');
+    } catch (error) {
+      console.error('Error adding device:', error);
+      alert('Error adding device. Please try again.');
+    }
+  };
+
+  // Handle device deletion
+  const handleDeleteDevice = (deviceId) => {
+    if (window.confirm('Are you sure you want to delete this device? This action cannot be undone.')) {
+      // Remove device from devices array
+      setDevices(prev => prev.filter(device => device.id !== deviceId));
+      
+      // Remove device sensor data
+      setDeviceSensorData(prev => {
+        const newData = { ...prev };
+        delete newData[deviceId];
+        return newData;
+      });
+      
+      // If the deleted device was selected, switch to first available device
+      setSelectedDevice(prevSelected => {
+        if (prevSelected === deviceId) {
+          const remainingDevices = devices.filter(device => device.id !== deviceId);
+          return remainingDevices.length > 0 ? remainingDevices[0].id : null;
+        }
+        return prevSelected;
+      });
     }
   };
 
@@ -820,6 +860,7 @@ function App() {
                     <div className="device-actions">
                       <button className="action-button small">Configure</button>
                       <button className="action-button small">Update Firmware</button>
+                      <button className="action-button small danger" onClick={() => handleDeleteDevice(device.id)}>Delete</button>
                     </div>
                   </div>
                 ))}

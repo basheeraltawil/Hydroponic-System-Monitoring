@@ -512,6 +512,7 @@
                       <div class="device-actions">
                         <button class="action-button small">Configure</button>
                         <button class="action-button small">Update Firmware</button>
+                        <button class="action-button small danger" onclick="deleteDevice(${device.id})">Delete</button>
                       </div>
                     </div>
                   `).join('')}
@@ -566,11 +567,27 @@
     
     window.addDevice = function(event) {
       event.preventDefault();
-      const name = document.getElementById('device-name').value;
-      const type = document.getElementById('device-type').value;
-      const location = document.getElementById('device-location').value;
       
-      if (name && type && location) {
+      try {
+        const nameEl = document.getElementById('device-name');
+        const typeEl = document.getElementById('device-type');
+        const locationEl = document.getElementById('device-location');
+        
+        if (!nameEl || !typeEl || !locationEl) {
+          console.error('Form elements not found');
+          alert('Error: Form elements not found. Please refresh the page and try again.');
+          return;
+        }
+        
+        const name = nameEl.value.trim();
+        const type = typeEl.value.trim();
+        const location = locationEl.value.trim();
+        
+        if (!name || !type || !location) {
+          alert('Please fill in all required fields.');
+          return;
+        }
+        
         const newDeviceId = Date.now();
         
         // Add the new device
@@ -610,10 +627,45 @@
         saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, devices);
         saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
         updateDashboard();
+        
         // Clear form
-        document.getElementById('device-name').value = '';
-        document.getElementById('device-type').value = '';
-        document.getElementById('device-location').value = '';
+        nameEl.value = '';
+        typeEl.value = '';
+        locationEl.value = '';
+        
+        // Show success message
+        alert('Device added successfully!');
+      } catch (error) {
+        console.error('Error adding device:', error);
+        alert('Error adding device. Please try again.');
+      }
+    };
+    
+    window.deleteDevice = function(deviceId) {
+      if (confirm('Are you sure you want to delete this device? This action cannot be undone.')) {
+        // Remove device from devices array
+        devices = devices.filter(device => device.id !== deviceId);
+        
+        // Remove device sensor data
+        if (deviceSensorData[deviceId]) {
+          delete deviceSensorData[deviceId];
+        }
+        
+        // Remove device historical data
+        if (historicalData[deviceId]) {
+          delete historicalData[deviceId];
+        }
+        
+        // If the deleted device was selected, switch to first available device
+        if (selectedDevice === deviceId && devices.length > 0) {
+          selectedDevice = devices[0].id;
+          saveToFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, selectedDevice);
+        }
+        
+        // Save updated data
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, devices);
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
+        updateDashboard();
       }
     };
     
