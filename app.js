@@ -124,13 +124,94 @@ function App() {
     settings: ''
   }));
 
-  // Initialize historical data storage per device
+  // Function to generate realistic historical data for the past 24 hours
+  const generateHistoricalData = (deviceId, sensorType, currentValue, hoursBack = 24) => {
+    const data = [];
+    const now = new Date();
+    const intervalMinutes = 10; // Data point every 10 minutes
+    const totalPoints = (hoursBack * 60) / intervalMinutes; // Number of data points
+    
+    // Base variation patterns for different sensors
+    const patterns = {
+      temperature: { variation: 2, trend: 0 },
+      humidity: { variation: 8, trend: 0 },
+      electricConductivity: { variation: 100, trend: 0 },
+      waterLevel: { variation: 15, trend: -0.5 }, // Slight downward trend (water consumption)
+      pH: { variation: 0.3, trend: 0 },
+      lightIntensity: { variation: 20, trend: 0 },
+      nutrientLevel: { variation: 10, trend: -0.3 }, // Slight downward trend (nutrient consumption)
+      airTemperature: { variation: 3, trend: 0 }
+    };
+    
+    const pattern = patterns[sensorType] || { variation: 1, trend: 0 };
+    let value = currentValue;
+    
+    // Generate data points going backwards in time
+    for (let i = totalPoints; i >= 0; i--) {
+      const timestamp = new Date(now.getTime() - (i * intervalMinutes * 60 * 1000));
+      
+      // Add some realistic daily patterns
+      const hour = timestamp.getHours();
+      let dailyMultiplier = 1;
+      
+      if (sensorType === 'lightIntensity') {
+        // Light follows day/night cycle
+        dailyMultiplier = hour >= 6 && hour <= 18 ? 1 : 0.1;
+      } else if (sensorType === 'temperature' || sensorType === 'airTemperature') {
+        // Temperature variations throughout the day
+        dailyMultiplier = 0.9 + 0.2 * Math.sin((hour - 6) * Math.PI / 12);
+      }
+      
+      // Calculate base value with trend
+      const trendEffect = pattern.trend * (totalPoints - i) / totalPoints;
+      const randomVariation = (Math.random() - 0.5) * pattern.variation * dailyMultiplier;
+      
+      value = Math.max(0, currentValue + trendEffect + randomVariation);
+      
+      // Apply sensor-specific constraints
+      switch (sensorType) {
+        case 'temperature':
+        case 'airTemperature':
+          value = Math.max(15, Math.min(35, value));
+          break;
+        case 'humidity':
+        case 'waterLevel':
+        case 'lightIntensity':
+        case 'nutrientLevel':
+          value = Math.max(0, Math.min(100, value));
+          break;
+        case 'electricConductivity':
+          value = Math.max(500, Math.min(2000, value));
+          break;
+        case 'pH':
+          value = Math.max(4.0, Math.min(8.0, value));
+          break;
+      }
+      
+      data.push({
+        timestamp,
+        value: Math.round(value * 10) / 10 // Round to 1 decimal place
+      });
+    }
+    
+    return data;
+  };
+
+  // Initialize historical data storage per device with realistic historical data
   React.useEffect(() => {
     const initialData = {};
     devices.forEach(device => {
       initialData[device.id] = {};
-      Object.keys(deviceSensorData[device.id] || {}).forEach(sensor => {
-        initialData[device.id][sensor] = [];
+      const currentDeviceData = deviceSensorData[device.id] || {};
+      
+      Object.keys(currentDeviceData).forEach(sensor => {
+        // Generate 24 hours of historical data for each sensor
+        initialData[device.id][sensor] = generateHistoricalData(
+          device.id, 
+          sensor, 
+          currentDeviceData[sensor], 
+          24
+        );
       });
     });
     setHistoricalData(initialData);
@@ -143,18 +224,26 @@ function App() {
       const newData = { ...prev };
       
       Object.keys(deviceSensorData).forEach(deviceId => {
-        if (!newData[deviceId]) newData[deviceId] = {};
+        if (!newData[deviceId]) return; // Skip if no historical data initialized yet
         const currentData = deviceSensorData[deviceId];
         
         Object.keys(currentData).forEach(sensor => {
-          if (!newData[deviceId][sensor]) newData[deviceId][sensor] = [];
-          newData[deviceId][sensor].push({
-            timestamp,
-            value: currentData[sensor]
-          });
-          // Keep only last 24 hours of data
-          const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
-          newData[deviceId][sensor] = newData[deviceId][sensor].filter(point => point.timestamp > oneDayAgo);
+          if (!newData[deviceId][sensor]) return; // Skip if no historical data for this sensor
+          
+          // Only add new data point if enough time has passed (avoid duplicates from rapid updates)
+          const lastPoint = newData[deviceId][sensor][newData[deviceId][sensor].length - 1];
+          const timeDiff = lastPoint ? timestamp.getTime() - lastPoint.timestamp.getTime() : Infinity;
+          
+          if (timeDiff > 5 * 60 * 1000) { // Only add if 5+ minutes have passed
+            newData[deviceId][sensor].push({
+              timestamp,
+              value: currentData[sensor]
+            });
+            
+            // Keep only last 24 hours of data
+            const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
+            newData[deviceId][sensor] = newData[deviceId][sensor].filter(point => point.timestamp > oneDayAgo);
+          }
         });
       });
       
