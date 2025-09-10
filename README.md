@@ -1,4 +1,4 @@
-[![humble](https://github.com/ovgu-nit/nit_gesture_recognition/actions/workflows/humble-ci.yaml/badge.svg)](https://github.com/ovgu-nit/nit_gesture_recognition/actions/workflows/humble-ci.yaml)[![jazzy](https://github.com/ovgu-nit/nit_gesture_recognition/actions/workflows/jazzy-ci.yaml/badge.svg)](https://github.com/ovgu-nit/nit_gesture_recognition/actions/workflows/jazzy-ci.yaml)
+[![HTML](https://img.shields.io/badge/HTML-E34F26?style=for-the-badge&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/HTML)[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 # Hydroponic System Dashboard
 
 A real-time monitoring dashboard for hydroponic systems, designed to work both on web browsers and Raspberry Pi displays.
