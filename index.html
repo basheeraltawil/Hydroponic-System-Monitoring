@@ -219,14 +219,95 @@
     let activeTab = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, 'dashboard');
     let selectedDevice = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, 1); // Default to first device
     
+    // Function to generate realistic historical data for the past 24 hours
+    function generateHistoricalData(deviceId, sensorType, currentValue, hoursBack = 24) {
+      const data = [];
+      const now = new Date();
+      const intervalMinutes = 10; // Data point every 10 minutes
+      const totalPoints = (hoursBack * 60) / intervalMinutes; // Number of data points
+      
+      // Base variation patterns for different sensors
+      const patterns = {
+        temperature: { variation: 2, trend: 0 },
+        humidity: { variation: 8, trend: 0 },
+        electricConductivity: { variation: 100, trend: 0 },
+        waterLevel: { variation: 15, trend: -0.5 }, // Slight downward trend (water consumption)
+        pH: { variation: 0.3, trend: 0 },
+        lightIntensity: { variation: 20, trend: 0 },
+        nutrientLevel: { variation: 10, trend: -0.3 }, // Slight downward trend (nutrient consumption)
+        airTemperature: { variation: 3, trend: 0 }
+      };
+      
+      const pattern = patterns[sensorType] || { variation: 1, trend: 0 };
+      let value = currentValue;
+      
+      // Generate data points going backwards in time
+      for (let i = totalPoints; i >= 0; i--) {
+        const timestamp = new Date(now.getTime() - (i * intervalMinutes * 60 * 1000));
+        
+        // Add some realistic daily patterns
+        const hour = timestamp.getHours();
+        let dailyMultiplier = 1;
+        
+        if (sensorType === 'lightIntensity') {
+          // Light follows day/night cycle
+          dailyMultiplier = hour >= 6 && hour <= 18 ? 1 : 0.1;
+        } else if (sensorType === 'temperature' || sensorType === 'airTemperature') {
+          // Temperature variations throughout the day
+          dailyMultiplier = 0.9 + 0.2 * Math.sin((hour - 6) * Math.PI / 12);
+        }
+        
+        // Calculate base value with trend
+        const trendEffect = pattern.trend * (totalPoints - i) / totalPoints;
+        const randomVariation = (Math.random() - 0.5) * pattern.variation * dailyMultiplier;
+        
+        value = Math.max(0, currentValue + trendEffect + randomVariation);
+        
+        // Apply sensor-specific constraints
+        switch (sensorType) {
+          case 'temperature':
+          case 'airTemperature':
+            value = Math.max(15, Math.min(35, value));
+            break;
+          case 'humidity':
+          case 'waterLevel':
+          case 'lightIntensity':
+          case 'nutrientLevel':
+            value = Math.max(0, Math.min(100, value));
+            break;
+          case 'electricConductivity':
+            value = Math.max(500, Math.min(2000, value));
+            break;
+          case 'pH':
+            value = Math.max(4.0, Math.min(8.0, value));
+            break;
+        }
+        
+        data.push({
+          timestamp,
+          value: Math.round(value * 10) / 10 // Round to 1 decimal place
+        });
+      }
+      
+      return data;
+    }
+
     // Store historical data per device
     let historicalData = {};
     
-    // Initialize historical data for each device
+    // Initialize historical data for each device with realistic historical data
     devices.forEach(device => {
       historicalData[device.id] = {};
-      Object.keys(deviceSensorData[device.id] || {}).forEach(key => {
-        historicalData[device.id][key] = [];
+      const currentDeviceData = deviceSensorData[device.id] || {};
+      
+      Object.keys(currentDeviceData).forEach(sensorKey => {
+        // Generate 24 hours of historical data for each sensor
+        historicalData[device.id][sensorKey] = generateHistoricalData(
+          device.id, 
+          sensorKey, 
+          currentDeviceData[sensorKey], 
+          24
+        );
       });
     });
     
@@ -392,14 +473,13 @@
             </div>
             <div class="chart-container">
               <h3>${getSelectedDevice()?.name} - Sensor Data Trends</h3>
-              <div class="chart-placeholder">
-                <p>📈 Charts functionality would display historical sensor data here.</p>
-                <p>For the selected device: <strong>${getSelectedDevice()?.name}</strong></p>
-                <p>This would show real-time charts using Chart.js when integrated with actual sensor data.</p>
-              </div>
+              <div id="chart-display"></div>
             </div>
           </div>
         `;
+        
+        // Display historical data in a simple format for fallback
+        displayHistoricalChart();
       } else if (activeTab === 'devices') {
         main.innerHTML = `
           <div class="management-content">
@@ -560,15 +640,135 @@
       }
     };
     
+    
+    // Function to get filtered historical data based on selected period and device
+    function getFilteredData(sensorType, period) {
+      const deviceHistoricalData = historicalData[selectedDevice] || {};
+      const data = deviceHistoricalData[sensorType] || [];
+      const now = new Date();
+      let cutoff;
+      
+      switch (period) {
+        case '1h':
+          cutoff = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '6h':
+          cutoff = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+          break;
+        case '24h':
+          cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        default:
+          cutoff = new Date(now.getTime() - 60 * 60 * 1000);
+      }
+      
+      return data.filter(point => point.timestamp > cutoff);
+    }
+    
+    // Function to display historical chart in fallback mode
+    function displayHistoricalChart() {
+      const chartDisplay = document.getElementById('chart-display');
+      if (!chartDisplay) return;
+      
+      const sensorSelect = document.getElementById('sensor-select');
+      const periodSelect = document.getElementById('period-select');
+      
+      const selectedSensor = sensorSelect ? sensorSelect.value : 'temperature';
+      const selectedPeriod = periodSelect ? periodSelect.value : '1h';
+      
+      const filteredData = getFilteredData(selectedSensor, selectedPeriod);
+      
+      if (filteredData.length === 0) {
+        chartDisplay.innerHTML = `
+          <div class="chart-placeholder">
+            <p>📈 No historical data available yet.</p>
+            <p>Historical data will accumulate as the system runs.</p>
+            <p>Selected: <strong>${getSensorTitle(selectedSensor)}</strong> for <strong>${selectedPeriod}</strong></p>
+          </div>
+        `;
+        return;
+      }
+      
+      // Create a simple ASCII-style chart representation
+      let chartHTML = `
+        <div class="simple-chart">
+          <h4>${getSensorTitle(selectedSensor)} - ${selectedPeriod}</h4>
+          <p><strong>Data Points:</strong> ${filteredData.length}</p>
+          <p><strong>Time Range:</strong> ${filteredData[0].timestamp.toLocaleString()} to ${filteredData[filteredData.length - 1].timestamp.toLocaleString()}</p>
+          <div class="data-summary">
+            <div class="data-stats">
+              <span><strong>Latest:</strong> ${filteredData[filteredData.length - 1].value}</span>
+              <span><strong>Average:</strong> ${(filteredData.reduce((sum, point) => sum + point.value, 0) / filteredData.length).toFixed(1)}</span>
+              <span><strong>Min:</strong> ${Math.min(...filteredData.map(p => p.value)).toFixed(1)}</span>
+              <span><strong>Max:</strong> ${Math.max(...filteredData.map(p => p.value)).toFixed(1)}</span>
+            </div>
+          </div>
+          <div class="data-table">
+            <table>
+              <thead>
+                <tr><th>Time</th><th>Value</th></tr>
+              </thead>
+              <tbody>
+                ${filteredData.slice(-10).map(point => `
+                  <tr>
+                    <td>${point.timestamp.toLocaleTimeString()}</td>
+                    <td>${point.value}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      
+      chartDisplay.innerHTML = chartHTML;
+      
+      // Add event listeners for the select dropdowns
+      if (sensorSelect) {
+        sensorSelect.onchange = displayHistoricalChart;
+      }
+      if (periodSelect) {
+        periodSelect.onchange = displayHistoricalChart;
+      }
+    }
+    
+    // Function to get sensor title
+    function getSensorTitle(sensorType) {
+      const sensorTitles = {
+        temperature: 'Water Temperature',
+        humidity: 'Humidity',
+        electricConductivity: 'Electric Conductivity',
+        waterLevel: 'Water Level',
+        pH: 'pH Level',
+        lightIntensity: 'Light Intensity',
+        nutrientLevel: 'Nutrient Level',
+        airTemperature: 'Air Temperature'
+      };
+      return sensorTitles[sensorType] || sensorType;
+    }
+    
     window.exportToCSV = function() {
       const csvData = [];
       const currentData = getCurrentSensorData();
       const headers = ['Timestamp', ...Object.keys(currentData)];
       csvData.push(headers.join(','));
 
-      // Add current data as sample
-      const currentRow = [new Date().toISOString(), ...Object.values(currentData)];
-      csvData.push(currentRow.join(','));
+      // Get the historical data for current device
+      const deviceHistoricalData = historicalData[selectedDevice] || {};
+      const maxLength = Math.max(...Object.values(deviceHistoricalData).map(data => data?.length || 0));
+      
+      for (let i = 0; i < maxLength; i++) {
+        const row = [];
+        const timestamp = deviceHistoricalData.temperature?.[i]?.timestamp;
+        row.push(timestamp ? timestamp.toISOString() : '');
+        
+        Object.keys(currentData).forEach(sensor => {
+          const value = deviceHistoricalData[sensor]?.[i]?.value;
+          row.push(value !== undefined ? value : '');
+        });
+        
+        csvData.push(row.join(','));
+      }
       
       const csvContent = csvData.join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -596,19 +796,27 @@
         if (!historicalData[deviceId]) {
           historicalData[deviceId] = {};
           Object.keys(data).forEach(sensor => {
-            historicalData[deviceId][sensor] = [];
+            historicalData[deviceId][sensor] = generateHistoricalData(deviceId, sensor, data[sensor], 24);
           });
         }
         
         Object.keys(data).forEach(sensor => {
-          if (!historicalData[deviceId][sensor]) historicalData[deviceId][sensor] = [];
-          historicalData[deviceId][sensor].push({
-            timestamp,
-            value: data[sensor]
-          });
-          // Keep only last 100 data points
-          if (historicalData[deviceId][sensor].length > 100) {
-            historicalData[deviceId][sensor] = historicalData[deviceId][sensor].slice(-100);
+          if (!historicalData[deviceId][sensor]) {
+            historicalData[deviceId][sensor] = generateHistoricalData(deviceId, sensor, data[sensor], 24);
+          }
+          
+          // Only add new data point if enough time has passed (avoid duplicates from rapid updates)
+          const lastPoint = historicalData[deviceId][sensor][historicalData[deviceId][sensor].length - 1];
+          const timeDiff = lastPoint ? timestamp.getTime() - lastPoint.timestamp.getTime() : Infinity;
+          
+          if (timeDiff > 5 * 60 * 1000) { // Only add if 5+ minutes have passed
+            historicalData[deviceId][sensor].push({
+              timestamp,
+              value: data[sensor]
+            });
+            // Keep only last 24 hours of data
+            const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
+            historicalData[deviceId][sensor] = historicalData[deviceId][sensor].filter(point => point.timestamp > oneDayAgo);
           }
         });
         
