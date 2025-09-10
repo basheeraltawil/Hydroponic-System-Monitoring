@@ -24,8 +24,50 @@
   
   <!-- Fallback JavaScript -->
   <script>
-    let isLoggedIn = false;
-    let currentUsername = '';
+    // localStorage utilities for fallback JavaScript - same as React app
+    const FALLBACK_STORAGE_KEYS = {
+      LOGIN_STATE: 'hydroponicDashboard_loginState',
+      DEVICE_SENSOR_DATA: 'hydroponicDashboard_deviceSensorData', 
+      DEVICES: 'hydroponicDashboard_devices',
+      PROFILES: 'hydroponicDashboard_profiles',
+      ACTIVE_TAB: 'hydroponicDashboard_activeTab',
+      SELECTED_DEVICE: 'hydroponicDashboard_selectedDevice'
+    };
+
+    const saveToFallbackStorage = (key, data) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(data, (key, value) => {
+          if (value instanceof Date) {
+            return { __dateType: true, value: value.toISOString() };
+          }
+          return value;
+        }));
+      } catch (error) {
+        console.warn('Failed to save to localStorage:', error);
+      }
+    };
+
+    const loadFromFallbackStorage = (key, defaultValue) => {
+      try {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          return JSON.parse(stored, (key, value) => {
+            if (value && typeof value === 'object' && value.__dateType) {
+              return new Date(value.value);
+            }
+            return value;
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to load from localStorage:', error);
+      }
+      return defaultValue;
+    };
+
+    // Load state from localStorage
+    const savedLoginState = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.LOGIN_STATE, { isLoggedIn: false, username: '' });
+    let isLoggedIn = savedLoginState.isLoggedIn;
+    let currentUsername = savedLoginState.username;
     
     function showLoginScreen() {
       document.getElementById('fallback').innerHTML = `
@@ -55,7 +97,21 @@
       const usernameInput = event.target.querySelector('input[type="text"]');
       currentUsername = usernameInput.value || 'admin';
       isLoggedIn = true;
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.LOGIN_STATE, { isLoggedIn, username: currentUsername });
       initMainDashboard();
+    }
+    
+    window.handleLogout = function() {
+      isLoggedIn = false;
+      currentUsername = '';
+      activeTab = 'dashboard';
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.LOGIN_STATE, { isLoggedIn, username: currentUsername });
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, activeTab);
+      showLoginScreen();
+    }
+
+    function getSelectedDevice() {
+      return devices.find(device => device.id === selectedDevice) || devices[0];
     }
     
     function initMainDashboard() {
@@ -103,26 +159,37 @@
       initMainDashboard();
     }
     
-    // Fallback sensor data
-    let sensorData = {
-      temperature: 22.5,
-      humidity: 65,
-      electricConductivity: 1200,
-      waterLevel: 85,
-      pH: 6.2,
-      lightIntensity: 75,
-      nutrientLevel: 90,
-      airTemperature: 24.1
-    };
-    
-    // Store historical data
-    let historicalData = {};
-    Object.keys(sensorData).forEach(key => {
-      historicalData[key] = [];
+    // Device-specific sensor data - load from localStorage
+    let deviceSensorData = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, {
+      1: { // Greenhouse Alpha
+        temperature: 22.5,
+        humidity: 65,
+        electricConductivity: 1200,
+        waterLevel: 85,
+        pH: 6.2,
+        lightIntensity: 75,
+        nutrientLevel: 90,
+        airTemperature: 24.1
+      },
+      2: { // Greenhouse Beta
+        temperature: 20.8,
+        humidity: 58,
+        electricConductivity: 1350,
+        waterLevel: 72,
+        pH: 6.5,
+        lightIntensity: 68,
+        nutrientLevel: 85,
+        airTemperature: 22.9
+      }
     });
     
-    // Store devices and profiles
-    let devices = [
+    // Get current device sensor data
+    function getCurrentSensorData() {
+      return deviceSensorData[selectedDevice] || deviceSensorData[1];
+    }
+    
+    // Store devices and profiles - load from localStorage
+    let devices = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, [
       {
         id: 1,
         name: 'Greenhouse Alpha',
@@ -147,9 +214,102 @@
         lastSeen: new Date('2025-08-09T08:56:05'),
         createdAt: new Date('2025-08-01T11:00:00')
       }
-    ];
-    let profiles = [];
-    let activeTab = 'dashboard';
+    ]);
+    let profiles = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.PROFILES, []);
+    let activeTab = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, 'dashboard');
+    let selectedDevice = loadFromFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, 1); // Default to first device
+    
+    // Function to generate realistic historical data for the past 24 hours
+    function generateHistoricalData(deviceId, sensorType, currentValue, hoursBack = 24) {
+      const data = [];
+      const now = new Date();
+      const intervalMinutes = 10; // Data point every 10 minutes
+      const totalPoints = (hoursBack * 60) / intervalMinutes; // Number of data points
+      
+      // Base variation patterns for different sensors
+      const patterns = {
+        temperature: { variation: 2, trend: 0 },
+        humidity: { variation: 8, trend: 0 },
+        electricConductivity: { variation: 100, trend: 0 },
+        waterLevel: { variation: 15, trend: -0.5 }, // Slight downward trend (water consumption)
+        pH: { variation: 0.3, trend: 0 },
+        lightIntensity: { variation: 20, trend: 0 },
+        nutrientLevel: { variation: 10, trend: -0.3 }, // Slight downward trend (nutrient consumption)
+        airTemperature: { variation: 3, trend: 0 }
+      };
+      
+      const pattern = patterns[sensorType] || { variation: 1, trend: 0 };
+      let value = currentValue;
+      
+      // Generate data points going backwards in time
+      for (let i = totalPoints; i >= 0; i--) {
+        const timestamp = new Date(now.getTime() - (i * intervalMinutes * 60 * 1000));
+        
+        // Add some realistic daily patterns
+        const hour = timestamp.getHours();
+        let dailyMultiplier = 1;
+        
+        if (sensorType === 'lightIntensity') {
+          // Light follows day/night cycle
+          dailyMultiplier = hour >= 6 && hour <= 18 ? 1 : 0.1;
+        } else if (sensorType === 'temperature' || sensorType === 'airTemperature') {
+          // Temperature variations throughout the day
+          dailyMultiplier = 0.9 + 0.2 * Math.sin((hour - 6) * Math.PI / 12);
+        }
+        
+        // Calculate base value with trend
+        const trendEffect = pattern.trend * (totalPoints - i) / totalPoints;
+        const randomVariation = (Math.random() - 0.5) * pattern.variation * dailyMultiplier;
+        
+        value = Math.max(0, currentValue + trendEffect + randomVariation);
+        
+        // Apply sensor-specific constraints
+        switch (sensorType) {
+          case 'temperature':
+          case 'airTemperature':
+            value = Math.max(15, Math.min(35, value));
+            break;
+          case 'humidity':
+          case 'waterLevel':
+          case 'lightIntensity':
+          case 'nutrientLevel':
+            value = Math.max(0, Math.min(100, value));
+            break;
+          case 'electricConductivity':
+            value = Math.max(500, Math.min(2000, value));
+            break;
+          case 'pH':
+            value = Math.max(4.0, Math.min(8.0, value));
+            break;
+        }
+        
+        data.push({
+          timestamp,
+          value: Math.round(value * 10) / 10 // Round to 1 decimal place
+        });
+      }
+      
+      return data;
+    }
+
+    // Store historical data per device
+    let historicalData = {};
+    
+    // Initialize historical data for each device with realistic historical data
+    devices.forEach(device => {
+      historicalData[device.id] = {};
+      const currentDeviceData = deviceSensorData[device.id] || {};
+      
+      Object.keys(currentDeviceData).forEach(sensorKey => {
+        // Generate 24 hours of historical data for each sensor
+        historicalData[device.id][sensorKey] = generateHistoricalData(
+          device.id, 
+          sensorKey, 
+          currentDeviceData[sensorKey], 
+          24
+        );
+      });
+    });
     
     const sensors = [
       { key: 'temperature', title: 'Water Temperature', unit: '°C', icon: '🌡️' },
@@ -190,6 +350,9 @@
               <button class="tab-button ${activeTab === 'dashboard' ? 'active' : ''}" onclick="switchTab('dashboard')">
                 📊 Dashboard
               </button>
+              <button class="tab-button ${activeTab === 'charts' ? 'active' : ''}" onclick="switchTab('charts')">
+                📈 Charts
+              </button>
               <button class="tab-button ${activeTab === 'devices' ? 'active' : ''}" onclick="switchTab('devices')">
                 🔧 Devices
               </button>
@@ -201,6 +364,9 @@
               <div class="username-display" id="fallback-username">
                 ${currentUsername}
               </div>
+              <button class="logout-button" onclick="handleLogout()">
+                🚪 Logout
+              </button>
               <div class="last-update" id="fallback-time">
                 Last updated: ${new Date().toLocaleTimeString()}
               </div>
@@ -218,9 +384,23 @@
         main.innerHTML = `
           <div class="dashboard-content">
             <div class="dashboard-actions">
+              <div class="device-selector">
+                <label>Device:</label>
+                <select onchange="selectDevice(this.value)" class="control-select">
+                  ${devices.map(device => `
+                    <option value="${device.id}" ${device.id === selectedDevice ? 'selected' : ''}>
+                      ${device.name} (${device.status})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
               <button class="action-button export-btn" onclick="exportToCSV()">
                 💾 Export CSV
               </button>
+            </div>
+            <div class="selected-device-info">
+              <h3>📍 ${getSelectedDevice()?.name || 'No Device Selected'}</h3>
+              <p>Location: ${getSelectedDevice()?.location} | Status: <span class="status-text ${getSelectedDevice()?.status}">${getSelectedDevice()?.status}</span></p>
             </div>
             <div class="sensors-grid" id="fallback-grid"></div>
           </div>
@@ -230,7 +410,8 @@
         grid.innerHTML = '';
         
         sensors.forEach(sensor => {
-          const value = sensorData[sensor.key];
+          const currentData = getCurrentSensorData();
+          const value = currentData[sensor.key];
           const status = getStatusColor(sensor.key, value);
           const displayValue = typeof value === 'number' ? value.toFixed(1) : value;
           const statusText = status === 'optimal' ? '✓ Good' : status === 'warning' ? '⚠ Warning' : '⚡ Critical';
@@ -251,6 +432,54 @@
           `;
           grid.appendChild(card);
         });
+      } else if (activeTab === 'charts') {
+        main.innerHTML = `
+          <div class="charts-content">
+            <div class="chart-controls">
+              <div class="control-group">
+                <label>Device:</label>
+                <select onchange="selectDevice(this.value)" class="control-select">
+                  ${devices.map(device => `
+                    <option value="${device.id}" ${device.id === selectedDevice ? 'selected' : ''}>
+                      ${device.name} (${device.status})
+                    </option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="control-group">
+                <label>Sensor:</label>
+                <select id="sensor-select" class="control-select">
+                  <option value="temperature">Water Temperature</option>
+                  <option value="humidity">Humidity</option>
+                  <option value="electricConductivity">Electric Conductivity</option>
+                  <option value="waterLevel">Water Level</option>
+                  <option value="pH">pH Level</option>
+                  <option value="lightIntensity">Light Intensity</option>
+                  <option value="nutrientLevel">Nutrient Level</option>
+                  <option value="airTemperature">Air Temperature</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label>Period:</label>
+                <select id="period-select" class="control-select">
+                  <option value="1h">Last Hour</option>
+                  <option value="6h">Last 6 Hours</option>
+                  <option value="24h">Last 24 Hours</option>
+                </select>
+              </div>
+              <button class="action-button export-btn" onclick="exportToCSV()">
+                💾 Export CSV
+              </button>
+            </div>
+            <div class="chart-container">
+              <h3>${getSelectedDevice()?.name} - Sensor Data Trends</h3>
+              <div id="chart-display"></div>
+            </div>
+          </div>
+        `;
+        
+        // Display historical data in a simple format for fallback
+        displayHistoricalChart();
       } else if (activeTab === 'devices') {
         main.innerHTML = `
           <div class="management-content">
@@ -271,18 +500,19 @@
                     <div class="device-card">
                       <div class="device-header">
                         <h4>${device.name}</h4>
-                        <span class="status-badge ${device.status}">${device.status}</span>
+                        <span class="status-badge ${device.status || 'unknown'}">${device.status || 'unknown'}</span>
                       </div>
                       <div class="device-info">
-                        <p><strong>Serial:</strong> ${device.serial}</p>
-                        <p><strong>Location:</strong> ${device.location}</p>
-                        <p><strong>Firmware:</strong> ${device.firmware}</p>
-                        <p><strong>Profile:</strong> ${device.profile}</p>
-                        <p><strong>Last Seen:</strong> ${device.lastSeen.toLocaleDateString()}, ${device.lastSeen.toLocaleTimeString()}</p>
+                        <p><strong>Serial:</strong> ${device.serial || 'N/A'}</p>
+                        <p><strong>Location:</strong> ${device.location || 'Unknown'}</p>
+                        <p><strong>Firmware:</strong> ${device.firmware || 'Unknown'}</p>
+                        <p><strong>Profile:</strong> ${device.profile || 'default'}</p>
+                        <p><strong>Last Seen:</strong> ${device.lastSeen ? `${new Date(device.lastSeen).toLocaleDateString()}, ${new Date(device.lastSeen).toLocaleTimeString()}` : 'Never'}</p>
                       </div>
                       <div class="device-actions">
                         <button class="action-button small">Configure</button>
                         <button class="action-button small">Update Firmware</button>
+                        <button class="action-button small danger" onclick="deleteDevice(${device.id})">Delete</button>
                       </div>
                     </div>
                   `).join('')}
@@ -311,7 +541,7 @@
                       <h4>${profile.name}</h4>
                       <p>${profile.description}</p>
                       ${profile.settings ? `<pre class="settings-preview">${profile.settings}</pre>` : ''}
-                      <p><small>Created: ${profile.createdAt.toLocaleDateString()}</small></p>
+                      <p><small>Created: ${new Date(profile.createdAt).toLocaleDateString()}</small></p>
                     </div>
                   `).join('')}
               </div>
@@ -324,19 +554,45 @@
     // Global functions for forms
     window.switchTab = function(tab) {
       activeTab = tab;
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.ACTIVE_TAB, activeTab);
       updateHeader();
+      updateDashboard();
+    };
+
+    window.selectDevice = function(deviceId) {
+      selectedDevice = parseInt(deviceId);
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, selectedDevice);
       updateDashboard();
     };
     
     window.addDevice = function(event) {
       event.preventDefault();
-      const name = document.getElementById('device-name').value;
-      const type = document.getElementById('device-type').value;
-      const location = document.getElementById('device-location').value;
       
-      if (name && type && location) {
+      try {
+        const nameEl = document.getElementById('device-name');
+        const typeEl = document.getElementById('device-type');
+        const locationEl = document.getElementById('device-location');
+        
+        if (!nameEl || !typeEl || !locationEl) {
+          console.error('Form elements not found');
+          alert('Error: Form elements not found. Please refresh the page and try again.');
+          return;
+        }
+        
+        const name = nameEl.value.trim();
+        const type = typeEl.value.trim();
+        const location = locationEl.value.trim();
+        
+        if (!name || !type || !location) {
+          alert('Please fill in all required fields.');
+          return;
+        }
+        
+        const newDeviceId = Date.now();
+        
+        // Add the new device
         devices.push({
-          id: Date.now(),
+          id: newDeviceId,
           name,
           type,
           location,
@@ -347,11 +603,69 @@
           lastSeen: new Date(),
           createdAt: new Date()
         });
+        
+        // Initialize sensor data for the new device with realistic random values
+        deviceSensorData[newDeviceId] = {
+          temperature: Math.round((Math.random() * (26 - 20) + 20) * 10) / 10, // 20-26°C
+          humidity: Math.round((Math.random() * (70 - 60) + 60) * 10) / 10, // 60-70%
+          electricConductivity: Math.round(Math.random() * (1400 - 1000) + 1000), // 1000-1400 μS/cm
+          waterLevel: Math.round((Math.random() * (100 - 70) + 70) * 10) / 10, // 70-100%
+          pH: Math.round((Math.random() * (6.8 - 6.0) + 6.0) * 10) / 10, // 6.0-6.8
+          lightIntensity: Math.round((Math.random() * (85 - 60) + 60) * 10) / 10, // 60-85%
+          nutrientLevel: Math.round((Math.random() * (100 - 80) + 80) * 10) / 10, // 80-100%
+          airTemperature: Math.round((Math.random() * (26 - 22) + 22) * 10) / 10 // 22-26°C
+        };
+        
+        // Initialize historical data for the new device
+        if (!historicalData[newDeviceId]) {
+          historicalData[newDeviceId] = {};
+          Object.keys(deviceSensorData[newDeviceId]).forEach(sensor => {
+            historicalData[newDeviceId][sensor] = [];
+          });
+        }
+        
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, devices);
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
         updateDashboard();
+        
         // Clear form
-        document.getElementById('device-name').value = '';
-        document.getElementById('device-type').value = '';
-        document.getElementById('device-location').value = '';
+        nameEl.value = '';
+        typeEl.value = '';
+        locationEl.value = '';
+        
+        // Show success message
+        alert('Device added successfully!');
+      } catch (error) {
+        console.error('Error adding device:', error);
+        alert('Error adding device. Please try again.');
+      }
+    };
+    
+    window.deleteDevice = function(deviceId) {
+      if (confirm('Are you sure you want to delete this device? This action cannot be undone.')) {
+        // Remove device from devices array
+        devices = devices.filter(device => device.id !== deviceId);
+        
+        // Remove device sensor data
+        if (deviceSensorData[deviceId]) {
+          delete deviceSensorData[deviceId];
+        }
+        
+        // Remove device historical data
+        if (historicalData[deviceId]) {
+          delete historicalData[deviceId];
+        }
+        
+        // If the deleted device was selected, switch to first available device
+        if (selectedDevice === deviceId && devices.length > 0) {
+          selectedDevice = devices[0].id;
+          saveToFallbackStorage(FALLBACK_STORAGE_KEYS.SELECTED_DEVICE, selectedDevice);
+        }
+        
+        // Save updated data
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICES, devices);
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
+        updateDashboard();
       }
     };
     
@@ -369,6 +683,7 @@
           settings,
           createdAt: new Date()
         });
+        saveToFallbackStorage(FALLBACK_STORAGE_KEYS.PROFILES, profiles);
         updateDashboard();
         // Clear form
         document.getElementById('profile-name').value = '';
@@ -377,21 +692,142 @@
       }
     };
     
+    
+    // Function to get filtered historical data based on selected period and device
+    function getFilteredData(sensorType, period) {
+      const deviceHistoricalData = historicalData[selectedDevice] || {};
+      const data = deviceHistoricalData[sensorType] || [];
+      const now = new Date();
+      let cutoff;
+      
+      switch (period) {
+        case '1h':
+          cutoff = new Date(now.getTime() - 60 * 60 * 1000);
+          break;
+        case '6h':
+          cutoff = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+          break;
+        case '24h':
+          cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        default:
+          cutoff = new Date(now.getTime() - 60 * 60 * 1000);
+      }
+      
+      return data.filter(point => point.timestamp > cutoff);
+    }
+    
+    // Function to display historical chart in fallback mode
+    function displayHistoricalChart() {
+      const chartDisplay = document.getElementById('chart-display');
+      if (!chartDisplay) return;
+      
+      const sensorSelect = document.getElementById('sensor-select');
+      const periodSelect = document.getElementById('period-select');
+      
+      const selectedSensor = sensorSelect ? sensorSelect.value : 'temperature';
+      const selectedPeriod = periodSelect ? periodSelect.value : '1h';
+      
+      const filteredData = getFilteredData(selectedSensor, selectedPeriod);
+      
+      if (filteredData.length === 0) {
+        chartDisplay.innerHTML = `
+          <div class="chart-placeholder">
+            <p>📈 No historical data available yet.</p>
+            <p>Historical data will accumulate as the system runs.</p>
+            <p>Selected: <strong>${getSensorTitle(selectedSensor)}</strong> for <strong>${selectedPeriod}</strong></p>
+          </div>
+        `;
+        return;
+      }
+      
+      // Create a simple ASCII-style chart representation
+      let chartHTML = `
+        <div class="simple-chart">
+          <h4>${getSensorTitle(selectedSensor)} - ${selectedPeriod}</h4>
+          <p><strong>Data Points:</strong> ${filteredData.length}</p>
+          <p><strong>Time Range:</strong> ${filteredData[0].timestamp.toLocaleString()} to ${filteredData[filteredData.length - 1].timestamp.toLocaleString()}</p>
+          <div class="data-summary">
+            <div class="data-stats">
+              <span><strong>Latest:</strong> ${filteredData[filteredData.length - 1].value}</span>
+              <span><strong>Average:</strong> ${(filteredData.reduce((sum, point) => sum + point.value, 0) / filteredData.length).toFixed(1)}</span>
+              <span><strong>Min:</strong> ${Math.min(...filteredData.map(p => p.value)).toFixed(1)}</span>
+              <span><strong>Max:</strong> ${Math.max(...filteredData.map(p => p.value)).toFixed(1)}</span>
+            </div>
+          </div>
+          <div class="data-table">
+            <table>
+              <thead>
+                <tr><th>Time</th><th>Value</th></tr>
+              </thead>
+              <tbody>
+                ${filteredData.slice(-10).map(point => `
+                  <tr>
+                    <td>${point.timestamp.toLocaleTimeString()}</td>
+                    <td>${point.value}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      
+      chartDisplay.innerHTML = chartHTML;
+      
+      // Add event listeners for the select dropdowns
+      if (sensorSelect) {
+        sensorSelect.onchange = displayHistoricalChart;
+      }
+      if (periodSelect) {
+        periodSelect.onchange = displayHistoricalChart;
+      }
+    }
+    
+    // Function to get sensor title
+    function getSensorTitle(sensorType) {
+      const sensorTitles = {
+        temperature: 'Water Temperature',
+        humidity: 'Humidity',
+        electricConductivity: 'Electric Conductivity',
+        waterLevel: 'Water Level',
+        pH: 'pH Level',
+        lightIntensity: 'Light Intensity',
+        nutrientLevel: 'Nutrient Level',
+        airTemperature: 'Air Temperature'
+      };
+      return sensorTitles[sensorType] || sensorType;
+    }
+    
     window.exportToCSV = function() {
       const csvData = [];
-      const headers = ['Timestamp', ...Object.keys(sensorData)];
+      const currentData = getCurrentSensorData();
+      const headers = ['Timestamp', ...Object.keys(currentData)];
       csvData.push(headers.join(','));
 
-      // Add current data as sample
-      const currentRow = [new Date().toISOString(), ...Object.values(sensorData)];
-      csvData.push(currentRow.join(','));
+      // Get the historical data for current device
+      const deviceHistoricalData = historicalData[selectedDevice] || {};
+      const maxLength = Math.max(...Object.values(deviceHistoricalData).map(data => data?.length || 0));
+      
+      for (let i = 0; i < maxLength; i++) {
+        const row = [];
+        const timestamp = deviceHistoricalData.temperature?.[i]?.timestamp;
+        row.push(timestamp ? timestamp.toISOString() : '');
+        
+        Object.keys(currentData).forEach(sensor => {
+          const value = deviceHistoricalData[sensor]?.[i]?.value;
+          row.push(value !== undefined ? value : '');
+        });
+        
+        csvData.push(row.join(','));
+      }
       
       const csvContent = csvData.join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `hydroponic-data-${getSelectedDevice()?.name}-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
     };
@@ -404,29 +840,56 @@
     function simulateDataUpdate() {
       const timestamp = new Date();
       
-      // Store historical data
-      Object.keys(sensorData).forEach(sensor => {
-        if (!historicalData[sensor]) historicalData[sensor] = [];
-        historicalData[sensor].push({
-          timestamp,
-          value: sensorData[sensor]
-        });
-        // Keep only last 100 data points
-        if (historicalData[sensor].length > 100) {
-          historicalData[sensor] = historicalData[sensor].slice(-100);
+      // Update sensor data for each device with different variations
+      Object.keys(deviceSensorData).forEach(deviceId => {
+        const data = deviceSensorData[deviceId];
+        
+        // Store historical data for this device
+        if (!historicalData[deviceId]) {
+          historicalData[deviceId] = {};
+          Object.keys(data).forEach(sensor => {
+            historicalData[deviceId][sensor] = generateHistoricalData(deviceId, sensor, data[sensor], 24);
+          });
         }
+        
+        Object.keys(data).forEach(sensor => {
+          if (!historicalData[deviceId][sensor]) {
+            historicalData[deviceId][sensor] = generateHistoricalData(deviceId, sensor, data[sensor], 24);
+          }
+          
+          // Only add new data point if enough time has passed (avoid duplicates from rapid updates)
+          const lastPoint = historicalData[deviceId][sensor][historicalData[deviceId][sensor].length - 1];
+          const timeDiff = lastPoint ? timestamp.getTime() - lastPoint.timestamp.getTime() : Infinity;
+          
+          if (timeDiff > 5 * 60 * 1000) { // Only add if 5+ minutes have passed
+            historicalData[deviceId][sensor].push({
+              timestamp,
+              value: data[sensor]
+            });
+            // Keep only last 24 hours of data
+            const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
+            historicalData[deviceId][sensor] = historicalData[deviceId][sensor].filter(point => point.timestamp > oneDayAgo);
+          }
+        });
+        
+        // Apply different variation patterns for different devices
+        const isFirstDevice = deviceId == 1;
+        const variationMultiplier = isFirstDevice ? 1 : 1.2; // Second device has more variation
+        
+        deviceSensorData[deviceId] = {
+          temperature: Math.max(18, Math.min(28, data.temperature + (Math.random() - 0.5) * 0.5 * variationMultiplier)),
+          humidity: Math.max(50, Math.min(80, data.humidity + (Math.random() - 0.5) * 2 * variationMultiplier)),
+          electricConductivity: Math.max(800, Math.min(1600, data.electricConductivity + (Math.random() - 0.5) * 50 * variationMultiplier)),
+          waterLevel: Math.max(20, Math.min(100, data.waterLevel + (Math.random() - 0.5) * 3 * variationMultiplier)),
+          pH: Math.max(5.5, Math.min(7.5, data.pH + (Math.random() - 0.5) * 0.1 * variationMultiplier)),
+          lightIntensity: Math.max(40, Math.min(100, data.lightIntensity + (Math.random() - 0.5) * 5 * variationMultiplier)),
+          nutrientLevel: Math.max(50, Math.min(100, data.nutrientLevel + (Math.random() - 0.5) * 2 * variationMultiplier)),
+          airTemperature: Math.max(20, Math.min(30, data.airTemperature + (Math.random() - 0.5) * 0.3 * variationMultiplier))
+        };
       });
       
-      sensorData = {
-        temperature: Math.max(18, Math.min(28, sensorData.temperature + (Math.random() - 0.5) * 0.5)),
-        humidity: Math.max(50, Math.min(80, sensorData.humidity + (Math.random() - 0.5) * 2)),
-        electricConductivity: Math.max(800, Math.min(1600, sensorData.electricConductivity + (Math.random() - 0.5) * 50)),
-        waterLevel: Math.max(20, Math.min(100, sensorData.waterLevel + (Math.random() - 0.5) * 3)),
-        pH: Math.max(5.5, Math.min(7.5, sensorData.pH + (Math.random() - 0.5) * 0.1)),
-        lightIntensity: Math.max(40, Math.min(100, sensorData.lightIntensity + (Math.random() - 0.5) * 5)),
-        nutrientLevel: Math.max(50, Math.min(100, sensorData.nutrientLevel + (Math.random() - 0.5) * 2)),
-        airTemperature: Math.max(20, Math.min(30, sensorData.airTemperature + (Math.random() - 0.5) * 0.3))
-      };
+      // Save updated sensor data to localStorage
+      saveToFallbackStorage(FALLBACK_STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
       
       // Only update dashboard if we're on the dashboard tab
       if (activeTab === 'dashboard') {

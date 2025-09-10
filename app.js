@@ -1,21 +1,85 @@
+// localStorage utilities for state persistence
+const STORAGE_KEYS = {
+  LOGIN_STATE: 'hydroponicDashboard_loginState',
+  DEVICE_SENSOR_DATA: 'hydroponicDashboard_deviceSensorData',
+  DEVICES: 'hydroponicDashboard_devices',
+  PROFILES: 'hydroponicDashboard_profiles',
+  ACTIVE_TAB: 'hydroponicDashboard_activeTab',
+  SELECTED_DEVICE: 'hydroponicDashboard_selectedDevice',
+  DEVICE_FORM: 'hydroponicDashboard_deviceForm',
+  PROFILE_FORM: 'hydroponicDashboard_profileForm'
+};
+
+const saveToStorage = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data, (key, value) => {
+      // Handle Date objects
+      if (value instanceof Date) {
+        return { __dateType: true, value: value.toISOString() };
+      }
+      return value;
+    }));
+  } catch (error) {
+    console.warn('Failed to save to localStorage:', error);
+  }
+};
+
+const loadFromStorage = (key, defaultValue) => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored, (key, value) => {
+        // Restore Date objects
+        if (value && typeof value === 'object' && value.__dateType) {
+          return new Date(value.value);
+        }
+        return value;
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load from localStorage:', error);
+  }
+  return defaultValue;
+};
+
 // Hydroponic System Dashboard React Component
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
-  const [username, setUsername] = React.useState('');
-  const [sensorData, setSensorData] = React.useState({
-    temperature: 22.5,
-    humidity: 65,
-    electricConductivity: 1200,
-    waterLevel: 85,
-    pH: 6.2,
-    lightIntensity: 75,
-    nutrientLevel: 90,
-    airTemperature: 24.1
-  });
+  // Load login state from localStorage
+  const savedLoginState = loadFromStorage(STORAGE_KEYS.LOGIN_STATE, { isLoggedIn: false, username: '' });
+  const [isLoggedIn, setIsLoggedIn] = React.useState(savedLoginState.isLoggedIn);
+  const [username, setUsername] = React.useState(savedLoginState.username);
+  // Device-specific sensor data - load from localStorage
+  const [deviceSensorData, setDeviceSensorData] = React.useState(loadFromStorage(STORAGE_KEYS.DEVICE_SENSOR_DATA, {
+    1: { // Greenhouse Alpha
+      temperature: 22.5,
+      humidity: 65,
+      electricConductivity: 1200,
+      waterLevel: 85,
+      pH: 6.2,
+      lightIntensity: 75,
+      nutrientLevel: 90,
+      airTemperature: 24.1
+    },
+    2: { // Greenhouse Beta
+      temperature: 20.8,
+      humidity: 58,
+      electricConductivity: 1350,
+      waterLevel: 72,
+      pH: 6.5,
+      lightIntensity: 68,
+      nutrientLevel: 85,
+      airTemperature: 22.9
+    }
+  }));
+
+  // Get current device sensor data
+  const getCurrentSensorData = () => {
+    return deviceSensorData[selectedDevice] || deviceSensorData[1];
+  };
 
   const [lastUpdate, setLastUpdate] = React.useState(new Date());
   const [historicalData, setHistoricalData] = React.useState({});
-  const [devices, setDevices] = React.useState([
+  const [devices, setDevices] = React.useState(loadFromStorage(STORAGE_KEYS.DEVICES, [
     {
       id: 1,
       name: 'Greenhouse Alpha',
@@ -40,71 +104,216 @@ function App() {
       lastSeen: new Date('2025-08-09T08:56:05'),
       createdAt: new Date('2025-08-01T11:00:00')
     }
-  ]);
-  const [profiles, setProfiles] = React.useState([]);
-  const [activeTab, setActiveTab] = React.useState('dashboard');
+  ]));
+  const [profiles, setProfiles] = React.useState(loadFromStorage(STORAGE_KEYS.PROFILES, []));
+  const [activeTab, setActiveTab] = React.useState(loadFromStorage(STORAGE_KEYS.ACTIVE_TAB, 'dashboard'));
   const [selectedSensor, setSelectedSensor] = React.useState('temperature');
   const [selectedPeriod, setSelectedPeriod] = React.useState('1h');
+  const [selectedDevice, setSelectedDevice] = React.useState(loadFromStorage(STORAGE_KEYS.SELECTED_DEVICE, 1)); // Default to first device
   
-  // Form states - separate from sensor data to prevent clearing
-  const [deviceForm, setDeviceForm] = React.useState({
+  // Form states - separate from sensor data to prevent clearing - load from localStorage
+  const [deviceForm, setDeviceForm] = React.useState(loadFromStorage(STORAGE_KEYS.DEVICE_FORM, {
     name: '',
     type: '',
     location: ''
-  });
+  }));
   
-  const [profileForm, setProfileForm] = React.useState({
+  const [profileForm, setProfileForm] = React.useState(loadFromStorage(STORAGE_KEYS.PROFILE_FORM, {
     name: '',
     description: '',
     settings: ''
-  });
+  }));
 
-  // Initialize historical data storage
+  // Function to generate realistic historical data for the past 24 hours
+  const generateHistoricalData = (deviceId, sensorType, currentValue, hoursBack = 24) => {
+    const data = [];
+    const now = new Date();
+    const intervalMinutes = 10; // Data point every 10 minutes
+    const totalPoints = (hoursBack * 60) / intervalMinutes; // Number of data points
+    
+    // Base variation patterns for different sensors
+    const patterns = {
+      temperature: { variation: 2, trend: 0 },
+      humidity: { variation: 8, trend: 0 },
+      electricConductivity: { variation: 100, trend: 0 },
+      waterLevel: { variation: 15, trend: -0.5 }, // Slight downward trend (water consumption)
+      pH: { variation: 0.3, trend: 0 },
+      lightIntensity: { variation: 20, trend: 0 },
+      nutrientLevel: { variation: 10, trend: -0.3 }, // Slight downward trend (nutrient consumption)
+      airTemperature: { variation: 3, trend: 0 }
+    };
+    
+    const pattern = patterns[sensorType] || { variation: 1, trend: 0 };
+    let value = currentValue;
+    
+    // Generate data points going backwards in time
+    for (let i = totalPoints; i >= 0; i--) {
+      const timestamp = new Date(now.getTime() - (i * intervalMinutes * 60 * 1000));
+      
+      // Add some realistic daily patterns
+      const hour = timestamp.getHours();
+      let dailyMultiplier = 1;
+      
+      if (sensorType === 'lightIntensity') {
+        // Light follows day/night cycle
+        dailyMultiplier = hour >= 6 && hour <= 18 ? 1 : 0.1;
+      } else if (sensorType === 'temperature' || sensorType === 'airTemperature') {
+        // Temperature variations throughout the day
+        dailyMultiplier = 0.9 + 0.2 * Math.sin((hour - 6) * Math.PI / 12);
+      }
+      
+      // Calculate base value with trend
+      const trendEffect = pattern.trend * (totalPoints - i) / totalPoints;
+      const randomVariation = (Math.random() - 0.5) * pattern.variation * dailyMultiplier;
+      
+      value = Math.max(0, currentValue + trendEffect + randomVariation);
+      
+      // Apply sensor-specific constraints
+      switch (sensorType) {
+        case 'temperature':
+        case 'airTemperature':
+          value = Math.max(15, Math.min(35, value));
+          break;
+        case 'humidity':
+        case 'waterLevel':
+        case 'lightIntensity':
+        case 'nutrientLevel':
+          value = Math.max(0, Math.min(100, value));
+          break;
+        case 'electricConductivity':
+          value = Math.max(500, Math.min(2000, value));
+          break;
+        case 'pH':
+          value = Math.max(4.0, Math.min(8.0, value));
+          break;
+      }
+      
+      data.push({
+        timestamp,
+        value: Math.round(value * 10) / 10 // Round to 1 decimal place
+      });
+    }
+    
+    return data;
+  };
+
+  // Initialize historical data storage per device with realistic historical data
   React.useEffect(() => {
     const initialData = {};
-    Object.keys(sensorData).forEach(sensor => {
-      initialData[sensor] = [];
+    devices.forEach(device => {
+      initialData[device.id] = {};
+      const currentDeviceData = deviceSensorData[device.id] || {};
+      
+      Object.keys(currentDeviceData).forEach(sensor => {
+        // Generate 24 hours of historical data for each sensor
+        initialData[device.id][sensor] = generateHistoricalData(
+          device.id, 
+          sensor, 
+          currentDeviceData[sensor], 
+          24
+        );
+      });
     });
     setHistoricalData(initialData);
-  }, []);
+  }, [devices]);
 
-  // Store historical data when sensor data updates
+  // Store historical data when device sensor data updates
   React.useEffect(() => {
     const timestamp = new Date();
     setHistoricalData(prev => {
       const newData = { ...prev };
-      Object.keys(sensorData).forEach(sensor => {
-        if (!newData[sensor]) newData[sensor] = [];
-        newData[sensor].push({
-          timestamp,
-          value: sensorData[sensor]
+      
+      Object.keys(deviceSensorData).forEach(deviceId => {
+        if (!newData[deviceId]) return; // Skip if no historical data initialized yet
+        const currentData = deviceSensorData[deviceId];
+        
+        Object.keys(currentData).forEach(sensor => {
+          if (!newData[deviceId][sensor]) return; // Skip if no historical data for this sensor
+          
+          // Only add new data point if enough time has passed (avoid duplicates from rapid updates)
+          const lastPoint = newData[deviceId][sensor][newData[deviceId][sensor].length - 1];
+          const timeDiff = lastPoint ? timestamp.getTime() - lastPoint.timestamp.getTime() : Infinity;
+          
+          if (timeDiff > 5 * 60 * 1000) { // Only add if 5+ minutes have passed
+            newData[deviceId][sensor].push({
+              timestamp,
+              value: currentData[sensor]
+            });
+            
+            // Keep only last 24 hours of data
+            const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
+            newData[deviceId][sensor] = newData[deviceId][sensor].filter(point => point.timestamp > oneDayAgo);
+          }
         });
-        // Keep only last 24 hours of data
-        const oneDayAgo = new Date(timestamp.getTime() - 24 * 60 * 60 * 1000);
-        newData[sensor] = newData[sensor].filter(point => point.timestamp > oneDayAgo);
       });
+      
       return newData;
     });
-  }, [sensorData]);
+  }, [deviceSensorData]);
 
-  // Simulate real-time sensor data updates (reduced frequency)
+  // Simulate real-time sensor data updates for each device (reduced frequency)
   React.useEffect(() => {
     const interval = setInterval(() => {
-      setSensorData(prev => ({
-        temperature: Math.max(18, Math.min(28, prev.temperature + (Math.random() - 0.5) * 0.5)),
-        humidity: Math.max(50, Math.min(80, prev.humidity + (Math.random() - 0.5) * 2)),
-        electricConductivity: Math.max(800, Math.min(1600, prev.electricConductivity + (Math.random() - 0.5) * 50)),
-        waterLevel: Math.max(20, Math.min(100, prev.waterLevel + (Math.random() - 0.5) * 3)),
-        pH: Math.max(5.5, Math.min(7.5, prev.pH + (Math.random() - 0.5) * 0.1)),
-        lightIntensity: Math.max(40, Math.min(100, prev.lightIntensity + (Math.random() - 0.5) * 5)),
-        nutrientLevel: Math.max(50, Math.min(100, prev.nutrientLevel + (Math.random() - 0.5) * 2)),
-        airTemperature: Math.max(20, Math.min(30, prev.airTemperature + (Math.random() - 0.5) * 0.3))
-      }));
+      setDeviceSensorData(prev => {
+        const newData = { ...prev };
+        
+        Object.keys(newData).forEach(deviceId => {
+          const isFirstDevice = deviceId == 1;
+          const variationMultiplier = isFirstDevice ? 1 : 1.2; // Second device has more variation
+          const data = newData[deviceId];
+          
+          newData[deviceId] = {
+            temperature: Math.max(18, Math.min(28, data.temperature + (Math.random() - 0.5) * 0.5 * variationMultiplier)),
+            humidity: Math.max(50, Math.min(80, data.humidity + (Math.random() - 0.5) * 2 * variationMultiplier)),
+            electricConductivity: Math.max(800, Math.min(1600, data.electricConductivity + (Math.random() - 0.5) * 50 * variationMultiplier)),
+            waterLevel: Math.max(20, Math.min(100, data.waterLevel + (Math.random() - 0.5) * 3 * variationMultiplier)),
+            pH: Math.max(5.5, Math.min(7.5, data.pH + (Math.random() - 0.5) * 0.1 * variationMultiplier)),
+            lightIntensity: Math.max(40, Math.min(100, data.lightIntensity + (Math.random() - 0.5) * 5 * variationMultiplier)),
+            nutrientLevel: Math.max(50, Math.min(100, data.nutrientLevel + (Math.random() - 0.5) * 2 * variationMultiplier)),
+            airTemperature: Math.max(20, Math.min(30, data.airTemperature + (Math.random() - 0.5) * 0.3 * variationMultiplier))
+          };
+        });
+        
+        return newData;
+      });
       setLastUpdate(new Date());
     }, 10000); // Changed from 3000 to 10000 (10 seconds)
 
     return () => clearInterval(interval);
   }, []);
+
+  // Save state to localStorage whenever it changes
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.LOGIN_STATE, { isLoggedIn, username });
+  }, [isLoggedIn, username]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVICE_SENSOR_DATA, deviceSensorData);
+  }, [deviceSensorData]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVICES, devices);
+  }, [devices]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PROFILES, profiles);
+  }, [profiles]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.SELECTED_DEVICE, selectedDevice);
+  }, [selectedDevice]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.DEVICE_FORM, deviceForm);
+  }, [deviceForm]);
+
+  React.useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PROFILE_FORM, profileForm);
+  }, [profileForm]);
 
   // Function to get status color based on sensor value and optimal ranges
   const getStatusColor = (sensorType, value) => {
@@ -128,13 +337,77 @@ function App() {
   // Handle device form submission
   const handleAddDevice = (e) => {
     e.preventDefault();
-    if (deviceForm.name && deviceForm.type && deviceForm.location) {
+    
+    try {
+      const name = deviceForm.name?.trim();
+      const type = deviceForm.type?.trim();
+      const location = deviceForm.location?.trim();
+      
+      if (!name || !type || !location) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+      
+      const newDeviceId = Date.now();
+      
+      // Add the new device
       setDevices(prev => [...prev, {
-        id: Date.now(),
-        ...deviceForm,
+        id: newDeviceId,
+        name,
+        type,
+        location,
+        serial: `HY-RPI-${String(newDeviceId).slice(-3).padStart(3, '0')}`,
+        firmware: '1.2.0',
+        profile: 'default',
+        status: 'online',
+        lastSeen: new Date(),
         createdAt: new Date()
       }]);
+      
+      // Initialize sensor data for the new device with realistic random values
+      setDeviceSensorData(prev => ({
+        ...prev,
+        [newDeviceId]: {
+          temperature: Math.round((Math.random() * (26 - 20) + 20) * 10) / 10, // 20-26°C
+          humidity: Math.round((Math.random() * (70 - 60) + 60) * 10) / 10, // 60-70%
+          electricConductivity: Math.round(Math.random() * (1400 - 1000) + 1000), // 1000-1400 μS/cm
+          waterLevel: Math.round((Math.random() * (100 - 70) + 70) * 10) / 10, // 70-100%
+          pH: Math.round((Math.random() * (6.8 - 6.0) + 6.0) * 10) / 10, // 6.0-6.8
+          lightIntensity: Math.round((Math.random() * (85 - 60) + 60) * 10) / 10, // 60-85%
+          nutrientLevel: Math.round((Math.random() * (100 - 80) + 80) * 10) / 10, // 80-100%
+          airTemperature: Math.round((Math.random() * (26 - 22) + 22) * 10) / 10 // 22-26°C
+        }
+      }));
+      
       setDeviceForm({ name: '', type: '', location: '' });
+      alert('Device added successfully!');
+    } catch (error) {
+      console.error('Error adding device:', error);
+      alert('Error adding device. Please try again.');
+    }
+  };
+
+  // Handle device deletion
+  const handleDeleteDevice = (deviceId) => {
+    if (window.confirm('Are you sure you want to delete this device? This action cannot be undone.')) {
+      // Remove device from devices array
+      setDevices(prev => prev.filter(device => device.id !== deviceId));
+      
+      // Remove device sensor data
+      setDeviceSensorData(prev => {
+        const newData = { ...prev };
+        delete newData[deviceId];
+        return newData;
+      });
+      
+      // If the deleted device was selected, switch to first available device
+      setSelectedDevice(prevSelected => {
+        if (prevSelected === deviceId) {
+          const remainingDevices = devices.filter(device => device.id !== deviceId);
+          return remainingDevices.length > 0 ? remainingDevices[0].id : null;
+        }
+        return prevSelected;
+      });
     }
   };
 
@@ -154,19 +427,21 @@ function App() {
   // CSV Export functionality
   const exportToCSV = () => {
     const csvData = [];
-    const headers = ['Timestamp', ...Object.keys(sensorData)];
+    const currentData = getCurrentSensorData();
+    const headers = ['Timestamp', ...Object.keys(currentData)];
     csvData.push(headers.join(','));
 
-    // Get the maximum length of historical data
-    const maxLength = Math.max(...Object.values(historicalData).map(data => data.length));
+    // Get the maximum length of historical data for current device
+    const deviceHistoricalData = historicalData[selectedDevice] || {};
+    const maxLength = Math.max(...Object.values(deviceHistoricalData).map(data => data?.length || 0));
     
     for (let i = 0; i < maxLength; i++) {
       const row = [];
-      const timestamp = historicalData.temperature?.[i]?.timestamp;
+      const timestamp = deviceHistoricalData.temperature?.[i]?.timestamp;
       row.push(timestamp ? timestamp.toISOString() : '');
       
-      Object.keys(sensorData).forEach(sensor => {
-        const value = historicalData[sensor]?.[i]?.value;
+      Object.keys(currentData).forEach(sensor => {
+        const value = deviceHistoricalData[sensor]?.[i]?.value;
         row.push(value !== undefined ? value : '');
       });
       
@@ -178,14 +453,15 @@ function App() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hydroponic-data-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `hydroponic-data-${getSelectedDevice()?.name}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
-  // Get filtered historical data based on selected period
+  // Get filtered historical data based on selected period and device
   const getFilteredData = (sensorType, period) => {
-    const data = historicalData[sensorType] || [];
+    const deviceHistoricalData = historicalData[selectedDevice] || {};
+    const data = deviceHistoricalData[sensorType] || [];
     const now = new Date();
     let cutoff;
     
@@ -282,7 +558,7 @@ function App() {
           chartInstance.current.destroy();
         }
       };
-    }, [selectedSensor, selectedPeriod, historicalData]);
+    }, [selectedSensor, selectedPeriod, selectedDevice, historicalData]);
 
     return <canvas ref={chartRef} style={{ maxHeight: '400px' }}></canvas>;
   };
@@ -301,12 +577,24 @@ function App() {
     return sensorTitles[sensorType] || sensorType;
   };
 
+  // Get selected device info
+  const getSelectedDevice = () => {
+    return devices.find(device => device.id === selectedDevice) || devices[0];
+  };
+
   // Handle login
   const handleLogin = (e) => {
     e.preventDefault();
     const usernameInput = e.target.querySelector('input[type="text"]');
     setUsername(usernameInput.value || 'admin');
     setIsLoggedIn(true);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUsername('');
+    setActiveTab('dashboard');
   };
 
   // Login screen component
@@ -368,6 +656,9 @@ function App() {
             <div className="username-display">
               {username}
             </div>
+            <button className="logout-button" onClick={handleLogout}>
+              🚪 Logout
+            </button>
             <div className="last-update">
               Last updated: {lastUpdate.toLocaleTimeString()}
             </div>
@@ -379,63 +670,81 @@ function App() {
         {activeTab === 'dashboard' && (
           <div className="dashboard-content">
             <div className="dashboard-actions">
+              <div className="device-selector">
+                <label>Device:</label>
+                <select 
+                  value={selectedDevice} 
+                  onChange={(e) => setSelectedDevice(parseInt(e.target.value))}
+                  className="control-select"
+                >
+                  {devices.map(device => (
+                    <option key={device.id} value={device.id}>
+                      {device.name} ({device.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button className="action-button export-btn" onClick={exportToCSV}>
                 💾 Export CSV
               </button>
             </div>
+            <div className="selected-device-info">
+              <h3>📍 {getSelectedDevice()?.name || 'No Device Selected'}</h3>
+              <p>Location: {getSelectedDevice()?.location} | Status: <span className={`status-text ${getSelectedDevice()?.status}`}>{getSelectedDevice()?.status}</span></p>
+            </div>
             <div className="sensors-grid">
               <SensorCard 
                 title="Water Temperature" 
-                value={sensorData.temperature} 
+                value={getCurrentSensorData().temperature} 
                 unit="°C" 
                 icon="🌡️" 
                 sensorType="temperature"
               />
               <SensorCard 
                 title="Humidity" 
-                value={sensorData.humidity} 
+                value={getCurrentSensorData().humidity} 
                 unit="%" 
                 icon="💧" 
                 sensorType="humidity"
               />
               <SensorCard 
                 title="Electric Conductivity" 
-                value={sensorData.electricConductivity} 
+                value={getCurrentSensorData().electricConductivity} 
                 unit="μS/cm" 
                 icon="⚡" 
                 sensorType="electricConductivity"
               />
               <SensorCard 
                 title="Water Level" 
-                value={sensorData.waterLevel} 
+                value={getCurrentSensorData().waterLevel} 
                 unit="%" 
                 icon="🌊" 
                 sensorType="waterLevel"
               />
               <SensorCard 
                 title="pH Level" 
-                value={sensorData.pH} 
+                value={getCurrentSensorData().pH} 
                 unit="" 
                 icon="🧪" 
                 sensorType="pH"
               />
               <SensorCard 
                 title="Light Intensity" 
-                value={sensorData.lightIntensity} 
+                value={getCurrentSensorData().lightIntensity} 
                 unit="%" 
                 icon="☀️" 
                 sensorType="lightIntensity"
               />
               <SensorCard 
                 title="Nutrient Level" 
-                value={sensorData.nutrientLevel} 
+                value={getCurrentSensorData().nutrientLevel} 
                 unit="%" 
                 icon="🥬" 
                 sensorType="nutrientLevel"
               />
               <SensorCard 
                 title="Air Temperature" 
-                value={sensorData.airTemperature} 
+                value={getCurrentSensorData().airTemperature} 
                 unit="°C" 
                 icon="🌡️" 
                 sensorType="airTemperature"
@@ -447,6 +756,20 @@ function App() {
         {activeTab === 'charts' && (
           <div className="charts-content">
             <div className="chart-controls">
+              <div className="control-group">
+                <label>Device:</label>
+                <select 
+                  value={selectedDevice} 
+                  onChange={(e) => setSelectedDevice(parseInt(e.target.value))}
+                  className="control-select"
+                >
+                  {devices.map(device => (
+                    <option key={device.id} value={device.id}>
+                      {device.name} ({device.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="control-group">
                 <label>Sensor:</label>
                 <select 
@@ -481,7 +804,7 @@ function App() {
               </button>
             </div>
             <div className="chart-container">
-              <h3>{getSensorTitle(selectedSensor)} - {selectedPeriod}</h3>
+              <h3>{getSelectedDevice()?.name} - {getSensorTitle(selectedSensor)} - {selectedPeriod}</h3>
               <ChartComponent />
             </div>
           </div>
@@ -523,20 +846,21 @@ function App() {
                   <div key={device.id} className="device-card">
                     <div className="device-header">
                       <h4>{device.name}</h4>
-                      <span className={`status-badge ${device.status}`}>
-                        {device.status}
+                      <span className={`status-badge ${device.status || 'unknown'}`}>
+                        {device.status || 'unknown'}
                       </span>
                     </div>
                     <div className="device-info">
-                      <p><strong>Serial:</strong> {device.serial}</p>
-                      <p><strong>Location:</strong> {device.location}</p>
-                      <p><strong>Firmware:</strong> {device.firmware}</p>
-                      <p><strong>Profile:</strong> {device.profile}</p>
-                      <p><strong>Last Seen:</strong> {device.lastSeen.toLocaleDateString()}, {device.lastSeen.toLocaleTimeString()}</p>
+                      <p><strong>Serial:</strong> {device.serial || 'N/A'}</p>
+                      <p><strong>Location:</strong> {device.location || 'Unknown'}</p>
+                      <p><strong>Firmware:</strong> {device.firmware || 'Unknown'}</p>
+                      <p><strong>Profile:</strong> {device.profile || 'default'}</p>
+                      <p><strong>Last Seen:</strong> {device.lastSeen ? `${device.lastSeen.toLocaleDateString()}, ${device.lastSeen.toLocaleTimeString()}` : 'Never'}</p>
                     </div>
                     <div className="device-actions">
                       <button className="action-button small">Configure</button>
                       <button className="action-button small">Update Firmware</button>
+                      <button className="action-button small danger" onClick={() => handleDeleteDevice(device.id)}>Delete</button>
                     </div>
                   </div>
                 ))}
