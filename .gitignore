@@ -1,0 +1,109 @@
+# Hydroponic Dashboard .gitignore
+# Ignore files that shouldn't be committed to the repository
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor and IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-workspace
+.sublime-project
+
+# Node.js (if you decide to add build tools later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build and Distribution Files
+dist/
+build/
+*.min.js
+*.min.css
+
+# Environment and Configuration Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Log Files
+*.log
+logs/
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Cache Files
+.cache/
+*.cache
+
+# Backup Files
+*.bak
+*.backup
+*~
+
+# Testing Files
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+test-results.xml
+
+# Python (for Raspberry Pi integration)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Documentation Build Files
+docs/_build/
+site/
+
+# Security and Sensitive Files
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+
+# Database Files (if added later)
+*.db
+*.sqlite
+*.sqlite3
+
+# Archive Files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+
+# Keep important empty directories
+!.gitkeep
+
+# But ignore their contents except .gitkeep
+logs/*
+!logs/.gitkeep
+cache/*
+!cache/.gitkeep
