@@ -1,4 +1,24 @@
-// localStorage utilities for state persistence
+/**
+ * HYDROPONIC SYSTEM DASHBOARD - MAIN APPLICATION FILE
+ * 
+ * LEARNING NOTES FOR BEGINNERS:
+ * This file contains the main application logic using React functional components.
+ * Key concepts demonstrated:
+ * - React hooks (useState, useEffect, useRef)
+ * - State management with localStorage persistence
+ * - Component lifecycle and side effects
+ * - Event handling and form management
+ * - Conditional rendering and dynamic content
+ */
+
+// ===============================
+// CONSTANTS AND CONFIGURATION
+// ===============================
+
+/**
+ * Storage keys for localStorage persistence
+ * Using a centralized object prevents typos and makes keys easy to update
+ */
 const STORAGE_KEYS = {
   LOGIN_STATE: 'hydroponicDashboard_loginState',
   DEVICE_SENSOR_DATA: 'hydroponicDashboard_deviceSensorData',
@@ -10,26 +30,46 @@ const STORAGE_KEYS = {
   PROFILE_FORM: 'hydroponicDashboard_profileForm'
 };
 
+// ===============================
+// UTILITY FUNCTIONS
+// ===============================
+
+/**
+ * Save data to localStorage with error handling
+ * Handles Date objects specially to preserve them during serialization
+ * 
+ * @param {string} key - The storage key
+ * @param {*} data - Data to store (will be JSON.stringify'd)
+ */
 const saveToStorage = (key, data) => {
   try {
     localStorage.setItem(key, JSON.stringify(data, (key, value) => {
-      // Handle Date objects
+      // Custom serializer: Convert Date objects to special format
       if (value instanceof Date) {
         return { __dateType: true, value: value.toISOString() };
       }
       return value;
     }));
   } catch (error) {
+    // Graceful error handling - app continues to work even if storage fails
     console.warn('Failed to save to localStorage:', error);
   }
 };
 
+/**
+ * Load data from localStorage with error handling
+ * Restores Date objects from their special serialized format
+ * 
+ * @param {string} key - The storage key
+ * @param {*} defaultValue - Fallback value if key doesn't exist or error occurs
+ * @returns {*} - The stored data or defaultValue
+ */
 const loadFromStorage = (key, defaultValue) => {
   try {
     const stored = localStorage.getItem(key);
     if (stored) {
       return JSON.parse(stored, (key, value) => {
-        // Restore Date objects
+        // Custom deserializer: Restore Date objects from special format
         if (value && typeof value === 'object' && value.__dateType) {
           return new Date(value.value);
         }
@@ -37,15 +77,40 @@ const loadFromStorage = (key, defaultValue) => {
       });
     }
   } catch (error) {
+    // Graceful error handling - return default value if parsing fails
     console.warn('Failed to load from localStorage:', error);
   }
   return defaultValue;
 };
 
-// Hydroponic System Dashboard React Component
+// ===============================
+// MAIN APPLICATION COMPONENT
+// ===============================
+
+/**
+ * Main App Component - Root component that manages the entire application
+ * 
+ * LEARNING NOTES:
+ * This is a functional component using React Hooks for state management.
+ * Key patterns demonstrated:
+ * - State initialization with localStorage data
+ * - Multiple useState hooks for different pieces of state
+ * - useEffect hooks for side effects (data updates, persistence)
+ * - Conditional rendering based on authentication state
+ */
 function App() {
-  // Load login state from localStorage
-  const savedLoginState = loadFromStorage(STORAGE_KEYS.LOGIN_STATE, { isLoggedIn: false, username: '' });
+  // ===============================
+  // STATE MANAGEMENT
+  // ===============================
+  
+  /**
+   * Authentication State
+   * Manages user login status and username with localStorage persistence
+   */
+  const savedLoginState = loadFromStorage(STORAGE_KEYS.LOGIN_STATE, { 
+    isLoggedIn: false, 
+    username: '' 
+  });
   const [isLoggedIn, setIsLoggedIn] = React.useState(savedLoginState.isLoggedIn);
   const [username, setUsername] = React.useState(savedLoginState.username);
   // Device-specific sensor data - load from localStorage

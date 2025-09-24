@@ -1,4 +1,40 @@
-/* Hydroponic Dashboard Styles */
+/* ===============================
+   HYDROPONIC DASHBOARD STYLES - ENHANCED FOR LEARNING
+   ===============================
+   
+   LEARNING NOTES FOR BEGINNERS:
+   This CSS file demonstrates modern styling techniques:
+   - CSS Custom Properties (variables) for maintainable theming
+   - Flexbox and Grid for responsive layouts  
+   - Component-based organization
+   - Accessibility features and focus management
+   - Responsive design with mobile-first approach
+   - Modern CSS features like backdrop-filter and clamp()
+*/
+
+/* CSS Custom Properties (Variables) - Define reusable values */
+:root {
+  --primary-color: #3498db;      /* Main blue color for buttons and accents */
+  --success-color: #27ae60;      /* Green for successful/optimal states */
+  --warning-color: #f39c12;      /* Orange for warning states */
+  --danger-color: #e74c3c;       /* Red for critical/error states */
+  --secondary-color: #95a5a6;    /* Gray for secondary elements */
+  --text-dark: #2c3e50;          /* Dark text color */
+  --text-light: #7f8c8d;        /* Light text color */
+  --background-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  --border-radius: 15px;         /* Standard border radius */
+  --spacing-xs: 0.25rem;         /* Extra small spacing */
+  --spacing-sm: 0.5rem;          /* Small spacing */
+  --spacing-md: 1rem;            /* Medium spacing */
+  --spacing-lg: 1.5rem;          /* Large spacing */
+  --spacing-xl: 2rem;            /* Extra large spacing */
+  --transition-fast: all 0.15s ease;   /* Quick transitions */
+  --transition: all 0.3s ease;         /* Standard transitions */
+  --transition-slow: all 0.5s ease;    /* Slow transitions */
+}
+
+/* Reset and Base Styles */
 * {
   margin: 0;
   padding: 0;
@@ -7,10 +43,151 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--background-gradient);
   min-height: 100vh;
-  color: #333;
+  color: var(--text-dark);
+  line-height: 1.6;
 }
+
+/* Enhanced Login Screen Styles */
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--spacing-md);
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-xl);
+  box-shadow: var(--card-shadow);
+  width: 100%;
+  max-width: 400px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.login-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-md);
+  display: block;
+}
+
+.login-header h1 {
+  color: var(--text-dark);
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-sm);
+}
+
+.login-header h2 {
+  color: var(--text-light);
+  font-size: 1.1rem;
+  font-weight: 400;
+}
+
+.login-form .form-group {
+  margin-bottom: var(--spacing-lg);
+  text-align: left;
+}
+
+.login-form label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.login-form .form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #bdc3c7;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: var(--transition);
+  background: white;
+}
+
+.login-form .form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.login-form .form-input:disabled {
+  background: #f8f9fa;
+  cursor: not-allowed;
+}
+
+.login-button {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  position: relative;
+}
+
+.login-button:hover:not(:disabled) {
+  background: #2980b9;
+  transform: translateY(-2px);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-message {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid var(--danger-color);
+  color: var(--danger-color);
+  padding: var(--spacing-md);
+  border-radius: 8px;
+  margin-bottom: var(--spacing-md);
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.login-note {
+  text-align: center;
+  margin-top: var(--spacing-md);
+  font-size: 0.9rem;
+  color: var(--text-light);
+}
+
+/* Hydroponic Dashboard Styles */
 
 .dashboard {
   min-height: 100vh;
