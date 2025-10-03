@@ -989,7 +989,7 @@ function App() {
       </main>
       
       <footer className="dashboard-footer">
-        <p>Raspberry Pi Hydroponic Monitoring System - Enhanced with Charts & Management</p>
+        <p> Hydroponic Monitoring System - Enhanced with Charts & Management</p>
       </footer>
     </div>
   );
