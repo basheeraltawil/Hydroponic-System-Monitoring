@@ -148,7 +148,7 @@ function App() {
     {
       id: 1,
       name: 'Greenhouse Alpha',
-      type: 'Hydroponic Controller',
+      type: ' Controller',
       location: 'Sector A',
       serial: 'HY-RPI-001',
       firmware: '1.2.3',
@@ -160,7 +160,7 @@ function App() {
     {
       id: 2,
       name: 'Greenhouse Beta',
-      type: 'Hydroponic Controller',
+      type: ' Controller',
       location: 'Sector B',
       serial: 'HY-RPI-002',
       firmware: '1.2.1',
@@ -518,7 +518,7 @@ function App() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `hydroponic-data-${getSelectedDevice()?.name}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `-data-${getSelectedDevice()?.name}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -667,7 +667,7 @@ function App() {
     return (
       <div className="login-container">
         <div className="login-form">
-          <h1>🌱 Hydroponic System Dashboard</h1>
+          <h1>🌱 iRAMA Farming System </h1>
           <h2>System Login</h2>
           <form onSubmit={handleLogin}>
             <div className="form-group">
