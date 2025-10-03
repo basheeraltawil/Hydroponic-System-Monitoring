@@ -171,7 +171,7 @@ function App() {
     }
   ]));
   const [profiles, setProfiles] = React.useState(loadFromStorage(STORAGE_KEYS.PROFILES, []));
-  const [activeTab, setActiveTab] = React.useState(loadFromStorage(STORAGE_KEYS.ACTIVE_TAB, 'dashboard'));
+  const [activeTab, setActiveTab] = React.useState(loadFromStorage(STORAGE_KEYS.ACTIVE_TAB, ''));
   const [selectedSensor, setSelectedSensor] = React.useState('temperature');
   const [selectedPeriod, setSelectedPeriod] = React.useState('1h');
   const [selectedDevice, setSelectedDevice] = React.useState(loadFromStorage(STORAGE_KEYS.SELECTED_DEVICE, 1)); // Default to first device
@@ -659,7 +659,7 @@ function App() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setUsername('');
-    setActiveTab('dashboard');
+    setActiveTab('');
   };
 
   // Login screen component
@@ -687,9 +687,9 @@ function App() {
   }
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h1>🌱 Hydroponic System Dashboard</h1>
+    <div className="">
+      <header className="-header">
+        <h1>🌱 iRAMA Farming System </h1>
         <div className="header-controls">
           <nav className="tab-navigation">
             <button 
