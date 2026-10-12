@@ -667,7 +667,7 @@ function App() {
     return (
       <div className="login-container">
         <div className="login-form">
-          <h1>🌱 iRAMA Farming System </h1>
+          <h1>🌱 iFARM Farming System </h1>
           <h2>System Login</h2>
           <form onSubmit={handleLogin}>
             <div className="form-group">
@@ -689,7 +689,7 @@ function App() {
   return (
     <div className="">
       <header className="-header">
-        <h1>🌱 iRAMA Farming System </h1>
+        <h1>🌱 iFARM Farming System </h1>
         <div className="header-controls">
           <nav className="tab-navigation">
             <button 
